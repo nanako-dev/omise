@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ぐるぐるパスタ屋さん</title>
+<meta name="description" content="お客さんの注文どおりにパスタを茹でて、ソースをぐるぐる絡めて、具をのせて出すお店ゲーム。AIが考えた気まぐれメニューも登場。">
+<meta property="og:title" content="ぐるぐるパスタ屋さん">
+<meta property="og:description" content="注文どおりにパスタを作って出す、ちいさなお店ゲーム。">
+<style>
+  :root { color-scheme: light; }
+  html, body { margin:0; height:100%; background:#f6e9d2; overflow:hidden; font-family: -apple-system, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; touch-action:none; -webkit-user-select:none; user-select:none; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#e9d8bd; }
+  canvas { display:block; background:#f6e9d2; touch-action:none; }
+  .panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(86vw, 330px); background:#fffaf2; border-radius:22px; padding:18px 18px 16px; box-shadow:0 10px 30px rgba(90,60,30,.22); text-align:center; z-index:5; }
+  .panel h1 { margin:0 0 6px; font-size:22px; color:#6b3f2a; letter-spacing:.02em; }
+  .panel p { margin:6px 0; font-size:13px; line-height:1.55; color:#5b4a3e; }
+  .howto { background:#fbf1e3; border-radius:12px; padding:8px 10px; text-align:left; font-size:12px; line-height:1.6; color:#5b4a3e; margin:8px 0; }
+  .howto b { color:#c9553d; }
+  button.big { margin-top:10px; width:100%; border:0; background:#d9634a; color:#fff; font-size:17px; font-weight:700; padding:12px; border-radius:30px; box-shadow:0 4px 0 #a9452f; cursor:pointer; }
+  button.big:active { transform:translateY(2px); box-shadow:0 2px 0 #a9452f; }
+  button.sub { margin-top:8px; border:0; background:#f1e2cc; color:#6b3f2a; font-size:13px; font-weight:700; padding:9px 14px; border-radius:20px; cursor:pointer; }
+  #result { top:auto; bottom:3vh; transform:translateX(-50%); }
+  .stat { display:flex; justify-content:space-around; margin:8px 0; }
+  .stat div { font-size:11px; color:#8a6f5e; }
+  .stat div b { display:block; font-size:20px; color:#6b3f2a; }
+  .row { display:flex; gap:8px; justify-content:center; }
+  .row button { flex:1; }
+  .lvl { font-size:12px; color:#c9553d; font-weight:700; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="title" class="panel">
+    <h1>ぐるぐるパスタ屋さん</h1>
+    <p>お客さんの注文どおりにパスタを作って出そう。<br>お店が育つと食材が増えて、気まぐれな注文もやってくる。</p>
+    <div class="howto">
+      <b>茹でる</b>：お鍋をタップ。ゲージが緑のうちにもう一度タップ<br>
+      <b>ソース</b>：棚のビンをタップ → フライパンの上で指をぐるぐる<br>
+      <b>具</b>：トレイからフライパンへドラッグ<br>
+      <b>仕上げ</b>：チーズや海苔をタップしてふりかけ<br>
+      <b>出す</b>：「できあがり」でお客さんへ
+    </div>
+    <p class="lvl" id="t-lvl"></p>
+    <button class="big" id="start">開店する</button>
+  </div>
+  <div id="result" class="panel hidden">
+    <h1 id="r-title">閉店</h1>
+    <div class="stat">
+      <div>売上<b id="r-money">¥0</b></div>
+      <div>お客さん<b id="r-served">0人</b></div>
+      <div>満足<b id="r-stars">0</b></div>
+    </div>
+    <p id="r-msg"></p>
+    <p class="lvl" id="r-lvl"></p>
+    <div class="row">
+      <button class="big" id="again">次の日へ</button>
+    </div>
+    <div class="row">
+      <button class="sub" id="save">画像を保存</button>
+      <button class="sub" id="share">Xでシェア</button>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+const W = 390, H = 760;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let cssScale = 1, scale = 1;
+
+// ---------- data ----------
+const SAUCES = [
+  { id:'tomato', name:'トマト', short:'トマト', col:'#e2563c', bottle:'#e2563c', lv:1 },
+  { id:'cream',  name:'クリーム', short:'クリーム', col:'#f3e4c3', bottle:'#f4ead4', lv:1 },
+  { id:'wafu',   name:'和風しょうゆ', short:'和風', col:'#b0783f', bottle:'#7a4a24', lv:1 },
+  { id:'oil',    name:'ペペロンチーノ', short:'ペペロンチーノ', col:'#e9c86e', bottle:'#d8b34a', lv:2 },
+  { id:'basil',  name:'ジェノベーゼ', short:'ジェノベーゼ', col:'#7fae55', bottle:'#5f9440', lv:3 },
+];
+const TOPS = [
+  { id:'ebi',     name:'えび',       lv:1 },
+  { id:'bacon',   name:'ベーコン',   lv:1 },
+  { id:'kinoko',  name:'きのこ',     lv:1 },
+  { id:'spinach', name:'ほうれん草', lv:1 },
+  { id:'tomato',  name:'ミニトマト', lv:1 },
+  { id:'tuna',    name:'ツナ',       lv:1 },
+  { id:'mentai',  name:'明太子',     lv:2 },
+  { id:'nasu',    name:'なす',       lv:2 },
+  { id:'shirasu', name:'しらす',     lv:2 },
+  { id:'egg',     name:'温たま',     lv:2 },
+  { id:'avocado', name:'アボカド',   lv:3 },
+  { id:'mozza',   name:'モッツァレラ', lv:3 },
+  { id:'corn',    name:'コーン',     lv:3 },
+  { id:'shiso',   name:'大葉',       lv:3 },
+  { id:'apple',   name:'りんご',     lv:4, odd:true },
+  { id:'ichigo',  name:'いちご',     lv:4, odd:true },
+  { id:'banana',  name:'バナナ',     lv:5, odd:true },
+  { id:'marshm',  name:'マシュマロ', lv:5, odd:true },
+];
+const FINS = [
+  { id:'none',   name:'そのまま' },
+  { id:'cheese', name:'粉チーズ', col:'#f7e9b8' },
+  { id:'nori',   name:'刻みのり', col:'#2f3a2a' },
+  { id:'basil',  name:'バジル',   col:'#4e8a3a' },
+  { id:'pepper', name:'黒こしょう', col:'#3a2d25' },
+];
+const S = Object.fromEntries(SAUCES.map(s => [s.id, s]));
+const T = Object.fromEntries(TOPS.map(t => [t.id, t]));
+const F = Object.fromEntries(FINS.map(f => [f.id, f]));
+
+// AI が考えた定番メニュー (お店のレベルで解放)
+const MENU = [
+  // lv1
+  { n:'えびのトマトクリーム風', s:'tomato', t:['ebi'], f:'cheese', lv:1 },
+  { n:'ベーコンときのこのクリーム', s:'cream', t:['bacon','kinoko'], f:'pepper', lv:1 },
+  { n:'ツナとほうれん草の和風', s:'wafu', t:['tuna','spinach'], f:'nori', lv:1 },
+  { n:'きのこの和風しょうゆ', s:'wafu', t:['kinoko'], f:'nori', lv:1 },
+  { n:'ミニトマトとベーコンのトマト', s:'tomato', t:['tomato','bacon'], f:'cheese', lv:1 },
+  { n:'えびとほうれん草のクリーム', s:'cream', t:['ebi','spinach'], f:'none', lv:1 },
+  { n:'ツナときのこのトマト', s:'tomato', t:['tuna','kinoko'], f:'pepper', lv:1 },
+  { n:'ベーコンとほうれん草の和風', s:'wafu', t:['bacon','spinach'], f:'none', lv:1 },
+  { n:'えびとミニトマトのクリーム', s:'cream', t:['ebi','tomato'], f:'cheese', lv:1 },
+  { n:'きのことほうれん草のクリーム', s:'cream', t:['kinoko','spinach'], f:'pepper', lv:1 },
+  // lv2
+  { n:'明太子クリーム', s:'cream', t:['mentai'], f:'nori', lv:2 },
+  { n:'えびと明太子のクリーム', s:'cream', t:['ebi','mentai'], f:'nori', lv:2 },
+  { n:'なすとベーコンのトマト', s:'tomato', t:['nasu','bacon'], f:'cheese', lv:2 },
+  { n:'しらすと大根おろし風の和風', s:'wafu', t:['shirasu','spinach'], f:'nori', lv:2 },
+  { n:'ベーコンのペペロンチーノ', s:'oil', t:['bacon'], f:'pepper', lv:2 },
+  { n:'えびときのこのペペロンチーノ', s:'oil', t:['ebi','kinoko'], f:'pepper', lv:2 },
+  { n:'温たまベーコンのクリーム', s:'cream', t:['egg','bacon'], f:'pepper', lv:2 },
+  { n:'明太子とツナの和風', s:'wafu', t:['mentai','tuna'], f:'nori', lv:2 },
+  { n:'なすとツナの和風', s:'wafu', t:['nasu','tuna'], f:'none', lv:2 },
+  { n:'しらすとほうれん草のペペロンチーノ', s:'oil', t:['shirasu','spinach'], f:'none', lv:2 },
+  { n:'温たま明太子クリーム', s:'cream', t:['egg','mentai'], f:'nori', lv:2 },
+  { n:'えびとなすのトマト', s:'tomato', t:['ebi','nasu'], f:'cheese', lv:2 },
+  // lv3
+  { n:'えびとアボカドのトマトクリーム', s:'tomato', t:['ebi','avocado'], f:'cheese', lv:3 },
+  { n:'モッツァレラとミニトマトのジェノベーゼ', s:'basil', t:['mozza','tomato'], f:'none', lv:3 },
+  { n:'えびのジェノベーゼ', s:'basil', t:['ebi'], f:'cheese', lv:3 },
+  { n:'大葉と明太子の和風', s:'wafu', t:['shiso','mentai'], f:'nori', lv:3 },
+  { n:'コーンとベーコンのクリーム', s:'cream', t:['corn','bacon'], f:'pepper', lv:3 },
+  { n:'アボカドと温たまのクリーム', s:'cream', t:['avocado','egg'], f:'pepper', lv:3 },
+  { n:'ツナとコーンの和風', s:'wafu', t:['tuna','corn'], f:'nori', lv:3 },
+  { n:'モッツァレラとなすのトマト', s:'tomato', t:['mozza','nasu'], f:'basil', lv:3 },
+  { n:'しらすと大葉のペペロンチーノ', s:'oil', t:['shirasu','shiso'], f:'none', lv:3 },
+  { n:'きのことベーコンのジェノベーゼ', s:'basil', t:['kinoko','bacon'], f:'cheese', lv:3 },
+  { n:'えびとアボカドと温たまのクリーム', s:'cream', t:['ebi','avocado','egg'], f:'pepper', lv:3 },
+  { n:'大葉とツナとミニトマトの和風', s:'wafu', t:['shiso','tuna','tomato'], f:'nori', lv:3 },
+  // lv4+ (AI の自由な発想)
+  { n:'りんごとベーコンのクリーム', s:'cream', t:['apple','bacon'], f:'pepper', lv:4, ai:true },
+  { n:'いちごとモッツァレラのジェノベーゼ', s:'basil', t:['ichigo','mozza'], f:'none', lv:4, ai:true },
+  { n:'りんごとアボカドの和風', s:'wafu', t:['apple','avocado'], f:'nori', lv:4, ai:true },
+  { n:'いちごと明太子のクリーム', s:'cream', t:['ichigo','mentai'], f:'none', lv:4, ai:true },
+  { n:'バナナとベーコンのペペロンチーノ', s:'oil', t:['banana','bacon'], f:'pepper', lv:5, ai:true },
+  { n:'マシュマロとコーンのクリーム', s:'cream', t:['marshm','corn'], f:'cheese', lv:5, ai:true },
+  { n:'バナナとえびのトマト', s:'tomato', t:['banana','ebi'], f:'basil', lv:5, ai:true },
+  { n:'マシュマロといちごと温たまのクリーム', s:'cream', t:['marshm','ichigo','egg'], f:'none', lv:5, ai:true },
+];
+const LV_NEED = [0, 2500, 6500, 12000, 19000, 28000]; // 累計売上でレベル
+
+// ---------- layout ----------
+const POT = { x: 100, y: 450, r: 56 };
+const PAN = { x: 268, y: 452, r: 64 };
+const TRASH = { x: 318, y: 336, w: 60, h: 24 };
+const SHELF_Y = 240;
+const TRAY = { x: 15, y: 556, cw: 60, ch: 44, cols: 6, rows: 3 };
+const SHAKER_Y = 728;
+const SERVE = { x: 258, y: 700, w: 120, h: 52 };
+const CUST = [{ x: 92, y: 182, s: 1 }, { x: 262, y: 150, s: .62 }, { x: 330, y: 150, s: .62 }];
+const BUBBLE = { x: 150, y: 70, w: 226, h: 112 };
+
+// ---------- save ----------
+let save = { total: 0, day: 1, best: 0 };
+try { const s = JSON.parse(localStorage.getItem('pasta-save') || 'null'); if (s) save = Object.assign(save, s); } catch (e) {}
+function persist() { try { localStorage.setItem('pasta-save', JSON.stringify(save)); } catch (e) {} }
+function levelOf(total) { let l = 1; for (let i = 1; i < LV_NEED.length; i++) if (total >= LV_NEED[i]) l = i + 1; return l; }
+
+// ---------- state ----------
+let g;
+function newDay() {
+  const lv = levelOf(save.total);
+  g = {
+    phase: 'open', t: 0, lv, dayGoal: 5 + lv, served: 0, money: 0, stars: 0, hearts: 3,
+    customers: [], nextCust: 0.6,
+    pot: { state: 'empty', t: 0, bub: [] },           // empty / boiling / done
+    pan: { pasta: null, sauce: null, coat: 0, tops: [], fin: 'none', rot: 0, splash: 0 },
+    drag: null, swirl: null, msg: null, msgT: 0, parts: [], shake: null, fx: [],
+    reaction: null, popup: [],
+  };
+}
+
+const unlockedTops = () => TOPS.filter(t => t.lv <= g.lv);
+const unlockedSauces = () => SAUCES.filter(s => s.lv <= g.lv);
+
+function makeOrder() {
+  const lv = g.lv;
+  const tops = unlockedTops().map(t => t.id);
+  const pool = MENU.filter(m => m.lv <= lv && m.t.every(id => tops.includes(id)) && S[m.s].lv <= lv);
+  // 気まぐれ注文 (お客さんの発明): lv2 から
+  if (lv >= 2 && Math.random() < 0.12 + lv * 0.05) {
+    const ss = unlockedSauces(); const s = ss[Math.floor(Math.random() * ss.length)];
+    const cand = unlockedTops().slice();
+    const n = 2 + (Math.random() < 0.3 ? 1 : 0);
+    const picked = [];
+    while (picked.length < n && cand.length) picked.push(cand.splice(Math.floor(Math.random() * cand.length), 1)[0]);
+    const f = FINS[Math.floor(Math.random() * FINS.length)].id;
+    const name = picked.map(t => t.name).join(picked.length > 2 ? '・' : 'と') + 'の' + s.short;
+    return { n: name, s: s.id, t: picked.map(t => t.id), f, ai: true, whim: true };
+  }
+  const m = pool[Math.floor(Math.random() * pool.length)];
+  return Object.assign({}, m);
+}
+
+const CTYPES = ['kuma', 'usagi', 'neko', 'inu', 'pen'];
+function spawnCustomer() {
+  if (g.customers.length >= 3 || g.served + g.customers.length >= g.dayGoal) return;
+  const order = makeOrder();
+  g.customers.push({
+    type: CTYPES[Math.floor(Math.random() * CTYPES.length)], order,
+    patience: Math.max(32, 50 - g.lv * 2), pmax: Math.max(32, 50 - g.lv * 2),
+    mood: 'wait', enter: 0, x: W + 40, y: 0,
+  });
+}
+
+// ---------- audio ----------
+let AC = null;
+function ensureAudio() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); }
+function tone(f, d, type = 'sine', vol = .08, slide = 0) {
+  if (!AC) return; const o = AC.createOscillator(), gn = AC.createGain(); o.type = type; o.frequency.value = f;
+  if (slide) o.frequency.linearRampToValueAtTime(f + slide, AC.currentTime + d);
+  gn.gain.value = vol; gn.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.connect(gn); gn.connect(AC.destination); o.start(); o.stop(AC.currentTime + d);
+}
+const sfx = {
+  tap: () => tone(520, .08, 'triangle', .06),
+  plop: () => tone(300, .15, 'sine', .08, -120),
+  pour: () => tone(220, .3, 'sawtooth', .03, 80),
+  swirl: () => tone(180 + Math.random() * 60, .06, 'triangle', .02),
+  ding: () => { tone(880, .25, 'sine', .08); setTimeout(() => tone(1320, .35, 'sine', .07), 90); },
+  good: () => { tone(660, .12, 'sine', .07); setTimeout(() => tone(880, .12, 'sine', .07), 100); setTimeout(() => tone(1100, .25, 'sine', .07), 200); },
+  bad: () => { tone(300, .25, 'sawtooth', .05, -80); },
+  shake: () => tone(900 + Math.random() * 300, .05, 'square', .02),
+  bubble: () => tone(400 + Math.random() * 200, .08, 'sine', .02, 80),
+};
+
+// ---------- input ----------
+function toLocal(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / cssScale, y: (e.clientY - r.top) / cssScale }; }
+const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function trayCell(i) { const c = i % TRAY.cols, r = Math.floor(i / TRAY.cols); return { x: TRAY.x + c * TRAY.cw, y: TRAY.y + r * (TRAY.ch + 2), w: TRAY.cw - 3, h: TRAY.ch }; }
+function shakerAt(p) { for (let i = 1; i < FINS.length; i++) { const x = 36 + (i - 1) * 56; if (dist(p, { x, y: SHAKER_Y }) < 26) return FINS[i]; } return null; }
+function bottleAt(p) { const ss = unlockedSauces(); for (let i = 0; i < SAUCES.length; i++) { const x = 45 + i * 75; if (p.x > x - 32 && p.x < x + 32 && p.y > SHELF_Y - 4 && p.y < SHELF_Y + 80) return SAUCES[i].lv <= g.lv ? SAUCES[i] : { locked: true, s: SAUCES[i] }; } return null; }
+
+function say(t, kind = 'info') { g.msg = { t, kind }; g.msgT = 1.8; }
+
+cv.addEventListener('pointerdown', e => {
+  ensureAudio(); if (!g || g.phase !== 'open') return;
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  const p = toLocal(e);
+  // serve
+  if (inRect(p, SERVE)) { serve(); return; }
+  if (inRect(p, TRASH)) { if (g.pan.pasta) { resetPan(); say('フライパンを空にした'); sfx.plop(); } return; }
+  // pot
+  if (dist(p, POT) < POT.r + 10) { potTap(); return; }
+  // bottles
+  const b = bottleAt(p);
+  if (b) { if (b.locked) { say('Lv' + b.s.lv + 'で解放'); return; } pourSauce(b); return; }
+  // shakers
+  const sh = shakerAt(p);
+  if (sh) { shakeFin(sh); return; }
+  // tray
+  const tops = unlockedTops();
+  for (let i = 0; i < TRAY.cols * TRAY.rows; i++) {
+    const cell = trayCell(i); if (!inRect(p, cell)) continue;
+    const t = TOPS[i]; if (!t) return;
+    if (t.lv > g.lv) { say('Lv' + t.lv + 'で解放'); return; }
+    g.drag = { top: t, x: p.x, y: p.y }; sfx.tap(); return;
+  }
+  // pan swirl
+  if (dist(p, PAN) < PAN.r + 12) { g.swirl = { a: Math.atan2(p.y - PAN.y, p.x - PAN.x), acc: 0 }; return; }
+});
+cv.addEventListener('pointermove', e => {
+  if (!g || g.phase !== 'open') return; const p = toLocal(e);
+  if (g.drag) { g.drag.x = p.x; g.drag.y = p.y; return; }
+  if (g.swirl) {
+    const a = Math.atan2(p.y - PAN.y, p.x - PAN.x); let d = a - g.swirl.a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; g.swirl.a = a;
+    if (dist(p, PAN) < PAN.r + 30 && g.pan.pasta && g.pan.sauce) {
+      const ad = Math.abs(d); g.pan.rot += d; g.pan.coat = Math.min(1, g.pan.coat + ad / (Math.PI * 2 * 2.6)); g.pan.splash = Math.min(1, g.pan.splash + ad * .4);
+      g.swirl.acc += ad; if (g.swirl.acc > 1.2) { g.swirl.acc = 0; sfx.swirl(); }
+      if (Math.random() < ad * .6) g.parts.push({ x: PAN.x + Math.cos(a) * (PAN.r - 8), y: PAN.y + Math.sin(a) * (PAN.r - 8) * .8, vx: Math.cos(a) * 60, vy: -40 - Math.random() * 40, t: .5, col: S[g.pan.sauce].col, r: 2.5 });
+    }
+  }
+});
+function release(e) {
+  if (!g) return; const p = toLocal(e);
+  if (g.drag) {
+    if (dist(p, PAN) < PAN.r + 16) addTop(g.drag.top); else if (g.drag.x !== undefined && dist({ x: g.drag.x, y: g.drag.y }, PAN) < PAN.r + 16) addTop(g.drag.top);
+    g.drag = null;
+  }
+  g.swirl = null;
+}
+cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
+
+// ---------- actions ----------
+function potTap() {
+  const pot = g.pot;
+  if (pot.state === 'empty') { pot.state = 'boiling'; pot.t = 0; sfx.plop(); say('茹でてる… 緑のところでタップ'); return; }
+  if (pot.state === 'boiling') {
+    if (g.pan.pasta) { say('フライパンがいっぱい。先に出すか空にしてね', 'warn'); return; }
+    const q = boilQuality(pot.t);
+    g.pan.pasta = q; g.pan.coat = 0; g.pan.sauce = null; g.pan.tops = []; g.pan.fin = 'none';
+    pot.state = 'empty'; pot.t = 0; sfx.ding();
+    say(q.label, q.v >= 1 ? 'good' : q.v >= .6 ? 'info' : 'warn');
+    for (let i = 0; i < 10; i++) g.parts.push({ x: POT.x + (Math.random() - .5) * 60, y: POT.y - 10, vx: (PAN.x - POT.x) * (1.4 + Math.random() * .4), vy: -220 - Math.random() * 60, t: .7, col: '#f1dc9a', r: 3, g: 700 });
+  }
+}
+function boilQuality(t) {
+  if (t < .32) return { v: .2, label: 'かたい…早すぎ' };
+  if (t < .48) return { v: .6, label: 'ちょっとかため' };
+  if (t <= .72) return { v: 1, label: 'アルデンテ！' };
+  if (t <= .88) return { v: .6, label: 'ちょっとやわらかめ' };
+  return { v: .2, label: 'のびちゃった…' };
+}
+function pourSauce(s) {
+  if (!g.pan.pasta) { say('先にパスタを茹でてね', 'warn'); return; }
+  g.pan.sauce = s.id; g.pan.coat = 0; sfx.pour(); say(s.name + 'ソース。指でぐるぐる絡めて');
+  for (let i = 0; i < 14; i++) g.parts.push({ x: PAN.x + (Math.random() - .5) * 40, y: PAN.y - 70, vx: (Math.random() - .5) * 40, vy: 60 + Math.random() * 60, t: .5, col: s.col, r: 3 });
+}
+function addTop(t) {
+  if (!g.pan.pasta) { say('先にパスタを茹でてね', 'warn'); return; }
+  if (g.pan.tops.length >= 4) { say('具はこれ以上のらない', 'warn'); return; }
+  const a = Math.random() * Math.PI * 2, r = 14 + Math.random() * 28;
+  g.pan.tops.push({ id: t.id, dx: Math.cos(a) * r, dy: Math.sin(a) * r * .75, rot: (Math.random() - .5) * 1.2 }); sfx.plop();
+}
+function shakeFin(f) {
+  if (!g.pan.pasta) { say('先にパスタを茹でてね', 'warn'); return; }
+  g.pan.fin = f.id; g.shake = { id: f.id, t: .7 }; say(f.name + 'をふりかけ');
+}
+function resetPan() { g.pan = { pasta: null, sauce: null, coat: 0, tops: [], fin: 'none', rot: 0, splash: 0 }; }
+
+function serve() {
+  const c = g.customers[0]; const pan = g.pan;
+  if (!c || c.mood !== 'wait' || g.reaction) return;
+  if (!pan.pasta) { say('まだ何もできてない', 'warn'); return; }
+  if (!pan.sauce) { say('ソースがかかってない', 'warn'); return; }
+  const o = c.order;
+  const want = o.t.slice(), have = pan.tops.map(t => t.id);
+  const missing = want.filter(id => !have.includes(id)), extra = have.filter(id => !want.includes(id));
+  const sauceOk = pan.sauce === o.s, finOk = pan.fin === o.f, coatOk = pan.coat >= .8;
+  let score = 1, msg = '', face = 'happy';
+  if (!sauceOk) { score = .15; msg = 'ソースがちがう…'; face = 'sad'; }
+  else {
+    const issues = [];
+    if (missing.length) { score -= .25 * missing.length; issues.push(T[missing[0]].name + 'が入ってない'); }
+    if (extra.length) { score -= .18 * extra.length; issues.push(T[extra[0]].name + 'は頼んでない'); }
+    if (!coatOk) { score -= .25; issues.push('ソースが絡んでない'); }
+    if (pan.pasta.v < 1) { score -= pan.pasta.v >= .6 ? .12 : .3; issues.push(pan.pasta.v >= .6 ? '麺がちょっと…' : pan.pasta.label); }
+    if (!finOk) { score -= .1; issues.push(o.f === 'none' ? '仕上げはいらなかった' : F[o.f].name + 'がほしかった'); }
+    score = Math.max(.1, score);
+    if (!issues.length) { msg = ['おいしい〜！', 'さいこう！', 'これこれ！', 'また来るね！'][Math.floor(Math.random() * 4)]; }
+    else if (score >= .7) { msg = issues[0] + '… でもおいしい'; face = 'ok'; }
+    else { msg = issues[0]; face = 'sad'; }
+  }
+  const price = 700 + 150 * o.t.length + (o.ai ? 200 : 0);
+  const money = Math.round(price * (0.35 + 0.65 * score) / 10) * 10;
+  const stars = score >= .95 ? 3 : score >= .6 ? 2 : 1;
+  g.money += money; save.total += money; g.stars += stars; g.served++;
+  c.mood = face; g.reaction = { t: 2.0, msg, money, stars, c };
+  g.popup.push({ x: 92, y: 120, t: 1.4, text: '+¥' + money, col: '#c9553d' });
+  if (face === 'happy') sfx.good(); else if (face === 'ok') sfx.ding(); else sfx.bad();
+  const oldLv = g.lv; const nl = levelOf(save.total); persist();
+  if (nl > oldLv) { g.lv = nl; g.fx.push({ kind: 'lvup', t: 3 }); }
+  resetPan();
+}
+
+function endDay(early) {
+  g.phase = 'done'; persist();
+  save.best = Math.max(save.best, g.money); persist();
+  const avg = g.served ? g.stars / g.served : 0;
+  document.getElementById('r-title').textContent = early ? '早じまい…' : '閉店！おつかれさま';
+  document.getElementById('r-money').textContent = '¥' + g.money.toLocaleString();
+  document.getElementById('r-served').textContent = g.served + '人';
+  document.getElementById('r-stars').textContent = '★'.repeat(Math.round(avg)) || '-';
+  const rank = early ? 'お客さんを待たせすぎ… 次はがんばろう' : avg >= 2.8 ? '満点の一日。行列ができそう' : avg >= 2.2 ? 'いい感じ。常連さんが増えた' : avg >= 1.5 ? 'まあまあ。注文をよく見よう' : '今日は散々… でも明日がある';
+  document.getElementById('r-msg').textContent = rank;
+  const lv = levelOf(save.total), need = LV_NEED[lv];
+  document.getElementById('r-lvl').textContent = 'お店 Lv' + lv + (need !== undefined ? '  あと¥' + (need - save.total).toLocaleString() + 'で次のレベル' : '  最高レベル！');
+  setTimeout(() => { document.getElementById('result').classList.remove('hidden'); }, 1200);
+}
+
+// ---------- update ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (g && g.phase === 'open') update(dt);
+  else if (g) { g.t += dt; g.parts = g.parts.filter(p => (p.t -= dt) > 0); }
+  draw();
+  requestAnimationFrame(frame);
+}
+function update(dt) {
+  g.t += dt;
+  // customers
+  g.nextCust -= dt; if (g.nextCust <= 0) { spawnCustomer(); g.nextCust = 4 + Math.random() * 4; }
+  g.customers.forEach((c, i) => { c.enter = Math.min(1, c.enter + dt * 2.2); });
+  const front = g.customers[0];
+  if (front && front.mood === 'wait' && !g.reaction) {
+    front.patience -= dt;
+    if (front.patience <= 0) { front.mood = 'angry'; g.reaction = { t: 1.6, msg: 'もう帰る！', money: 0, stars: 0, c: front, left: true }; g.hearts--; sfx.bad(); g.served++; }
+  }
+  if (g.reaction) { g.reaction.t -= dt; if (g.reaction.t <= 0) { g.customers.shift(); g.reaction = null; } }
+  // day end
+  if (g.hearts <= 0) { endDay(true); return; }
+  if (g.served >= g.dayGoal && !g.customers.length) { endDay(false); return; }
+  // pot
+  const pot = g.pot;
+  if (pot.state === 'boiling') { pot.t += dt / 7.5; if (Math.random() < .25) { pot.bub.push({ x: (Math.random() - .5) * 70, y: 0, t: .8 + Math.random() * .4 }); if (Math.random() < .2) sfx.bubble(); } if (pot.t > 1.3) pot.t = 1.3; }
+  pot.bub = pot.bub.filter(b => (b.t -= dt) > 0);
+  // misc timers
+  if (g.msgT > 0) g.msgT -= dt;
+  if (g.shake) { g.shake.t -= dt; if (g.shake.t > .2 && Math.random() < .8) { g.parts.push({ x: PAN.x + (Math.random() - .5) * 50, y: PAN.y - 60, vx: (Math.random() - .5) * 30, vy: 80, t: .5, col: F[g.shake.id].col, r: g.shake.id === 'nori' ? 2.5 : 1.8 }); if (Math.random() < .3) sfx.shake(); } if (g.shake.t <= 0) g.shake = null; }
+  g.pan.splash = Math.max(0, g.pan.splash - dt * 2);
+  g.parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 300) * dt; p.t -= dt; }); g.parts = g.parts.filter(p => p.t > 0);
+  g.popup.forEach(p => { p.y -= 30 * dt; p.t -= dt; }); g.popup = g.popup.filter(p => p.t > 0);
+  g.fx.forEach(f => f.t -= dt); g.fx = g.fx.filter(f => f.t > 0);
+}
+
+// ---------- drawing helpers ----------
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function lerpCol(a, b, t) { const pa = hex(a), pb = hex(b); return `rgb(${pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',')})`; }
+function hex(h) { return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function text(t, x, y, size, col, align = 'center', weight = '700') { ctx.font = `${weight} ${size}px -apple-system, "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif`; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y); }
+
+function drawTopIcon(id, x, y, s, rot = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s); ctx.lineWidth = 1.2;
+  switch (id) {
+    case 'ebi': ctx.fillStyle = '#f08a5d'; ctx.beginPath(); ctx.arc(0, 2, 9, Math.PI * 1.1, Math.PI * 1.95); ctx.arc(0, 2, 4, Math.PI * 1.95, Math.PI * 1.1, true); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-6, -1); ctx.lineTo(-7, -5); ctx.lineTo(-3, -3); ctx.fill(); ctx.strokeStyle = '#d9633a'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(0, 2, 9 - i * 1.6, Math.PI * 1.25, Math.PI * 1.85); ctx.stroke(); } break;
+    case 'bacon': ctx.fillStyle = '#e8878a'; rr(-10, -5, 20, 10, 3); ctx.fill(); ctx.strokeStyle = '#f9d3cf'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, -1); ctx.quadraticCurveTo(0, 3, 8, -1); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-8, 3); ctx.quadraticCurveTo(0, -1, 8, 3); ctx.stroke(); break;
+    case 'kinoko': ctx.fillStyle = '#c6935c'; ctx.beginPath(); ctx.arc(0, -2, 8, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#f2e3cf'; rr(-3, -2, 6, 9, 2); ctx.fill(); ctx.fillStyle = '#8a5a30'; ctx.beginPath(); ctx.arc(-3, -5, 1.5, 0, 7); ctx.arc(3, -4, 1.3, 0, 7); ctx.fill(); break;
+    case 'spinach': ctx.fillStyle = '#4e9a46'; ctx.beginPath(); ctx.ellipse(0, 0, 10, 5, -.5, 0, 7); ctx.fill(); ctx.strokeStyle = '#2f6e2b'; ctx.beginPath(); ctx.moveTo(-8, 4); ctx.lineTo(8, -4); ctx.stroke(); break;
+    case 'tomato': ctx.fillStyle = '#e8483a'; ctx.beginPath(); ctx.arc(0, 1, 8, 0, 7); ctx.fill(); ctx.fillStyle = '#4f9a3a'; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-4, -9); ctx.lineTo(0, -8); ctx.lineTo(4, -9); ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(-3, -2, 2, 0, 7); ctx.fill(); break;
+    case 'tuna': ctx.fillStyle = '#d9b48a'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(-6 + i * 3, (i % 2) * 3 - 1, 4, 2.5, i * .6, 0, 7); ctx.fill(); } break;
+    case 'mentai': ctx.fillStyle = '#ef8a9a'; ctx.beginPath(); ctx.ellipse(0, 0, 10, 5.5, .2, 0, 7); ctx.fill(); ctx.fillStyle = '#d2566f'; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-6 + i * 2, (i % 2) * 2 - 1, .9, 0, 7); ctx.fill(); } break;
+    case 'nasu': ctx.fillStyle = '#6b3f8a'; ctx.beginPath(); ctx.ellipse(0, 1, 9, 5.5, .3, 0, 7); ctx.fill(); ctx.fillStyle = '#e9d9b9'; ctx.beginPath(); ctx.ellipse(1, 1, 5, 2.5, .3, 0, 7); ctx.fill(); break;
+    case 'shirasu': ctx.fillStyle = '#f4f1e8'; ctx.strokeStyle = '#cfc9bb'; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(-7 + i * 3, (i % 3) * 3 - 3, 3.5, 1.3, i * .7, 0, 7); ctx.fill(); ctx.stroke(); } ctx.fillStyle = '#333'; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(-9 + i * 3, (i % 3) * 3 - 3, .5, 0, 7); ctx.fill(); } break;
+    case 'egg': ctx.fillStyle = '#fbf8ef'; ctx.beginPath(); ctx.ellipse(0, 0, 11, 8, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#f5b531'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.beginPath(); ctx.arc(-2, -2, 1.5, 0, 7); ctx.fill(); break;
+    case 'avocado': ctx.fillStyle = '#9ccb5a'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 10, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#3f6f2a'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 10, 0, -.6, .6); ctx.lineTo(0, 0); ctx.fill(); ctx.fillStyle = '#8c5a2b'; ctx.beginPath(); ctx.arc(0, 2, 3, 0, 7); ctx.fill(); break;
+    case 'mozza': ctx.fillStyle = '#fbf9f2'; ctx.strokeStyle = '#e3dccb'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#eee8d8'; ctx.beginPath(); ctx.arc(-3, -2, 2, 0, 7); ctx.fill(); break;
+    case 'corn': ctx.fillStyle = '#f7d14a'; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-8 + (i % 4) * 5, (i < 4 ? -2 : 3), 2.6, 0, 7); ctx.fill(); } break;
+    case 'shiso': ctx.fillStyle = '#5fa347'; ctx.beginPath(); ctx.moveTo(0, -10); for (let i = 0; i <= 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = 9 - (i % 2) * 1.6; ctx.lineTo(Math.cos(a) * r * .8, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#2f6e2b'; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke(); break;
+    case 'apple': ctx.fillStyle = '#f0e3b8'; ctx.beginPath(); ctx.arc(0, 0, 9, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#d93b3b'; ctx.beginPath(); ctx.arc(0, 0, 9, Math.PI, 0); ctx.arc(0, 0, 7, 0, Math.PI, true); ctx.fill(); ctx.fillStyle = '#5a3a1a'; ctx.beginPath(); ctx.ellipse(-2, -3, 1.2, 2, .3, 0, 7); ctx.ellipse(2, -3, 1.2, 2, -.3, 0, 7); ctx.fill(); break;
+    case 'ichigo': ctx.fillStyle = '#ea3d5c'; ctx.beginPath(); ctx.moveTo(0, 9); ctx.quadraticCurveTo(-10, 0, -6, -5); ctx.quadraticCurveTo(0, -9, 6, -5); ctx.quadraticCurveTo(10, 0, 0, 9); ctx.fill(); ctx.fillStyle = '#4f9a3a'; ctx.beginPath(); ctx.moveTo(-6, -5); ctx.lineTo(0, -10); ctx.lineTo(6, -5); ctx.lineTo(0, -3); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fbd9b0'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(-4 + (i % 3) * 4, (i < 3 ? 0 : 4), .8, 0, 7); ctx.fill(); } break;
+    case 'banana': ctx.strokeStyle = '#f3d34a'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(0, -4, 10, Math.PI * .2, Math.PI * .8); ctx.stroke(); ctx.strokeStyle = '#6b4a1a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -4, 10, Math.PI * .2, Math.PI * .8); ctx.stroke(); break;
+    case 'marshm': ctx.fillStyle = '#fff6f8'; ctx.strokeStyle = '#f0c8d2'; rr(-8, -7, 16, 14, 5); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#f7b8c8'; ctx.beginPath(); ctx.arc(-3, 0, 1.2, 0, 7); ctx.arc(3, 0, 1.2, 0, 7); ctx.fill(); break;
+  }
+  ctx.restore();
+}
+
+function drawCustomer(c, x, y, s, mood) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const col = { kuma: '#c08a5a', usagi: '#f7eef0', neko: '#f0c08a', inu: '#e9d9b7', pen: '#4a5a73' }[c.type];
+  const dark = { kuma: '#8a5a30', usagi: '#d9a7b3', neko: '#c48a4a', inu: '#b89a66', pen: '#2b3647' }[c.type];
+  // body
+  ctx.fillStyle = col; rr(-26, 18, 52, 40, 18); ctx.fill();
+  ctx.fillStyle = { kuma: '#f3dcb8', usagi: '#fff', neko: '#fff2dc', inu: '#fff6e5', pen: '#fff' }[c.type]; rr(-14, 24, 28, 30, 12); ctx.fill();
+  // ears
+  ctx.fillStyle = col;
+  if (c.type === 'usagi') { ctx.beginPath(); ctx.ellipse(-14, -40, 8, 22, -.15, 0, 7); ctx.ellipse(14, -40, 8, 22, .15, 0, 7); ctx.fill(); ctx.fillStyle = '#f7b8c8'; ctx.beginPath(); ctx.ellipse(-14, -40, 4, 15, -.15, 0, 7); ctx.ellipse(14, -40, 4, 15, .15, 0, 7); ctx.fill(); }
+  else if (c.type === 'neko') { ctx.beginPath(); ctx.moveTo(-28, -18); ctx.lineTo(-22, -42); ctx.lineTo(-6, -28); ctx.closePath(); ctx.moveTo(28, -18); ctx.lineTo(22, -42); ctx.lineTo(6, -28); ctx.closePath(); ctx.fill(); }
+  else if (c.type === 'inu') { ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(-28, -8, 9, 18, .3, 0, 7); ctx.ellipse(28, -8, 9, 18, -.3, 0, 7); ctx.fill(); }
+  else if (c.type === 'kuma') { ctx.beginPath(); ctx.arc(-24, -26, 11, 0, 7); ctx.arc(24, -26, 11, 0, 7); ctx.fill(); ctx.fillStyle = '#f3dcb8'; ctx.beginPath(); ctx.arc(-24, -26, 6, 0, 7); ctx.arc(24, -26, 6, 0, 7); ctx.fill(); }
+  // head
+  ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, -8, 32, 29, 0, 0, 7); ctx.fill();
+  if (c.type === 'pen') { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, -4, 22, 20, 0, 0, 7); ctx.fill(); }
+  if (c.type === 'inu' || c.type === 'kuma') { ctx.fillStyle = c.type === 'kuma' ? '#f3dcb8' : '#fff6e5'; ctx.beginPath(); ctx.ellipse(0, 2, 14, 10, 0, 0, 7); ctx.fill(); }
+  // cheeks
+  ctx.fillStyle = 'rgba(240,120,130,.35)'; ctx.beginPath(); ctx.arc(-18, 0, 5, 0, 7); ctx.arc(18, 0, 5, 0, 7); ctx.fill();
+  // eyes + mouth by mood
+  ctx.fillStyle = '#3b2e26';
+  if (mood === 'happy') { ctx.lineWidth = 2.4; ctx.strokeStyle = '#3b2e26'; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(-11, -8, 4, Math.PI, 0); ctx.stroke(); ctx.beginPath(); ctx.arc(11, -8, 4, Math.PI, 0); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 2, 5, 0, Math.PI); ctx.stroke(); }
+  else if (mood === 'sad') { ctx.beginPath(); ctx.ellipse(-11, -7, 3, 3.5, 0, 0, 7); ctx.ellipse(11, -7, 3, 3.5, 0, 0, 7); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#3b2e26'; ctx.beginPath(); ctx.arc(0, 8, 4, Math.PI, 0); ctx.stroke(); ctx.fillStyle = '#7fb6ea'; ctx.beginPath(); ctx.ellipse(-15, 0, 2, 4, 0, 0, 7); ctx.fill(); }
+  else if (mood === 'angry') { ctx.lineWidth = 2.4; ctx.strokeStyle = '#3b2e26'; ctx.beginPath(); ctx.moveTo(-16, -14); ctx.lineTo(-7, -10); ctx.moveTo(16, -14); ctx.lineTo(7, -10); ctx.stroke(); ctx.beginPath(); ctx.ellipse(-11, -6, 3, 3.5, 0, 0, 7); ctx.ellipse(11, -6, 3, 3.5, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.moveTo(-5, 6); ctx.lineTo(5, 6); ctx.stroke(); }
+  else if (mood === 'ok') { ctx.beginPath(); ctx.ellipse(-11, -7, 3, 3.5, 0, 0, 7); ctx.ellipse(11, -7, 3, 3.5, 0, 0, 7); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#3b2e26'; ctx.beginPath(); ctx.moveTo(-4, 5); ctx.quadraticCurveTo(0, 8, 4, 5); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.ellipse(-11, -7, 3, 3.5, 0, 0, 7); ctx.ellipse(11, -7, 3, 3.5, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-12, -8.5, 1, 0, 7); ctx.arc(10, -8.5, 1, 0, 7); ctx.fill(); ctx.fillStyle = '#3b2e26'; ctx.beginPath(); ctx.arc(0, 3, 2, 0, Math.PI); ctx.fill(); }
+  if (c.type === 'pen') { ctx.fillStyle = '#f5a623'; ctx.beginPath(); ctx.moveTo(-4, -2); ctx.lineTo(4, -2); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+}
+
+function drawPasta(cx, cy, r, sauceId, coat, rot, scaleY = .78) {
+  const base = '#f1dc9a';
+  const col = sauceId ? lerpCol(base, S[sauceId].col, coat * .85) : base;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(1, scaleY); ctx.rotate(rot * .25);
+  ctx.strokeStyle = col; ctx.lineWidth = r > 30 ? 5 : 4; ctx.lineCap = 'round';
+  for (let i = 0; i < 11; i++) {
+    const a = i * .571 + 1.3 * Math.sin(i * 1.7), rr0 = r * (.35 + .5 * ((i * 7) % 5) / 5);
+    const x0 = Math.cos(a) * rr0, y0 = Math.sin(a) * rr0;
+    ctx.beginPath(); ctx.moveTo(x0, y0);
+    ctx.bezierCurveTo(x0 + Math.cos(a + 1.5) * r * .6, y0 + Math.sin(a + 1.5) * r * .6, Math.cos(a + 3) * r * .5, Math.sin(a + 3) * r * .5, Math.cos(a + 4.2) * rr0 * .9, Math.sin(a + 4.2) * rr0 * .9);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 5; i++) { const a = i * 1.26 + .4; ctx.beginPath(); ctx.arc(Math.cos(a) * r * .3, Math.sin(a) * r * .3, r * .32, a, a + 1.2); ctx.stroke(); }
+  ctx.restore();
+}
+
+// ---------- draw ----------
+function draw() {
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  // room
+  ctx.fillStyle = '#f6e9d2'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#f1d9c0'; ctx.fillRect(0, 0, W, 236);
+  for (let i = 0; i < 12; i++) { ctx.fillStyle = i % 2 ? '#efd3b6' : '#f3dcc4'; ctx.fillRect(i * 34, 0, 34, 236); }
+  // counter
+  ctx.fillStyle = '#b5784a'; rr(0, 214, W, 30, 6); ctx.fill(); ctx.fillStyle = '#c98a58'; ctx.fillRect(0, 214, W, 6);
+  // kitchen floor tiles
+  ctx.fillStyle = '#efdcc3'; ctx.fillRect(0, 320, W, 236);
+  ctx.strokeStyle = 'rgba(120,80,40,.08)'; ctx.lineWidth = 1; for (let x = 0; x < W; x += 39) { ctx.beginPath(); ctx.moveTo(x, 320); ctx.lineTo(x, 556); ctx.stroke(); } for (let y = 320; y < 556; y += 39) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  if (!g) return;
+  drawShelf(); drawCustomers(); drawPot(); drawPan(); drawTray(); drawBottom(); drawHUD();
+  // particles
+  g.parts.forEach(p => { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); }); ctx.globalAlpha = 1;
+  if (g.drag) { ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 4; drawTopIcon(g.drag.top.id, g.drag.x, g.drag.y - 20, 1.7); ctx.restore(); }
+  g.popup.forEach(p => { ctx.globalAlpha = Math.min(1, p.t); text(p.text, p.x, p.y, 18, p.col); }); ctx.globalAlpha = 1;
+  g.fx.forEach(f => { if (f.kind === 'lvup') { const a = Math.min(1, f.t); ctx.globalAlpha = a; ctx.fillStyle = 'rgba(255,250,235,.95)'; rr(60, 380, 270, 60, 16); ctx.fill(); text('お店がレベルアップ！ Lv' + g.lv, W / 2, 400, 17, '#c9553d'); text('新しい食材とメニューが解放', W / 2, 424, 12, '#6b3f2a'); ctx.globalAlpha = 1; } });
+  if (g.msgT > 0 && g.msg) { const a = Math.min(1, g.msgT * 3); ctx.globalAlpha = a; const col = g.msg.kind === 'warn' ? '#c9553d' : g.msg.kind === 'good' ? '#3a8a4a' : '#6b3f2a'; ctx.fillStyle = 'rgba(255,250,240,.95)'; const w = Math.min(340, g.msg.t.length * 14 + 30); rr(W / 2 - w / 2, 290, w, 30, 15); ctx.fill(); text(g.msg.t, W / 2, 305, 13, col); ctx.globalAlpha = 1; }
+}
+function drawHUD() {
+  ctx.fillStyle = 'rgba(255,250,240,.9)'; rr(10, 10, W - 20, 44, 14); ctx.fill();
+  text(save.day + '日目', 26, 32, 14, '#6b3f2a', 'left');
+  text('Lv' + g.lv, 92, 32, 13, '#c9553d', 'left');
+  text('¥' + g.money.toLocaleString(), 200, 32, 16, '#6b3f2a');
+  text(g.served + '/' + g.dayGoal + '人', 300, 32, 12, '#8a6f5e');
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = i < g.hearts ? '#e26a6a' : '#e4d6c6'; heart(336 + i * 15, 32, 5.5); }
+}
+function heart(x, y, s) { ctx.beginPath(); ctx.moveTo(x, y + s); ctx.bezierCurveTo(x - s * 1.6, y - s * .2, x - s * .6, y - s * 1.4, x, y - s * .5); ctx.bezierCurveTo(x + s * .6, y - s * 1.4, x + s * 1.6, y - s * .2, x, y + s); ctx.fill(); }
+
+function drawCustomers() {
+  // queue (behind)
+  for (let i = g.customers.length - 1; i >= 1; i--) { const c = g.customers[i], pos = CUST[i]; const ex = (1 - c.enter) * 120; drawCustomer(c, pos.x + ex, pos.y, pos.s, 'wait'); }
+  const c = g.customers[0]; if (!c) { if (g.served < g.dayGoal) text('お客さんを待ってる…', 120, 150, 13, '#a08a78'); return; }
+  const ex = (1 - c.enter) * 160; const pos = CUST[0];
+  const bob = g.reaction && c.mood === 'happy' ? Math.sin(g.t * 14) * 4 : 0;
+  drawCustomer(c, pos.x + ex, pos.y + bob, pos.s, c.mood);
+  if (c.enter < 1) return;
+  // bubble
+  const b = BUBBLE; ctx.fillStyle = '#fffaf2'; ctx.strokeStyle = c.order.ai ? '#e7a93a' : '#e3cdb5'; ctx.lineWidth = c.order.ai ? 2.5 : 1.5;
+  rr(b.x, b.y, b.w, b.h, 16); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b.x + 4, b.y + 70); ctx.lineTo(b.x - 10, b.y + 86); ctx.lineTo(b.x + 4, b.y + 90); ctx.fill();
+  if (g.reaction && g.reaction.c === c) {
+    text(g.reaction.msg, b.x + b.w / 2, b.y + 40, 15, c.mood === 'happy' ? '#c9553d' : c.mood === 'ok' ? '#6b3f2a' : '#4a6fa5');
+    if (g.reaction.stars) text('★'.repeat(g.reaction.stars) + '☆'.repeat(3 - g.reaction.stars), b.x + b.w / 2, b.y + 72, 16, '#e7a93a');
+    return;
+  }
+  const o = c.order;
+  // mini plate
+  const px = b.x + 36, py = b.y + 44;
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, py, 27, 0, 7); ctx.fill(); ctx.strokeStyle = '#e8ddd0'; ctx.lineWidth = 2; ctx.stroke();
+  drawPasta(px, py, 18, o.s, 1, 0);
+  o.t.forEach((id, i) => { const a = i * 2.1 + .6; drawTopIcon(id, px + Math.cos(a) * 11, py + Math.sin(a) * 8, .75); });
+  if (o.f !== 'none') { ctx.fillStyle = F[o.f].col; for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.arc(px - 14 + (i * 37 % 28), py - 12 + (i * 23 % 24), 1.3, 0, 7); ctx.fill(); } }
+  // name + details
+  ctx.font = '700 13px -apple-system, "Hiragino Maru Gothic ProN", sans-serif'; ctx.fillStyle = '#6b3f2a'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const name = o.n; const tx = b.x + 74, maxW = b.w - 84;
+  wrapText(name, tx, b.y + 22, maxW, 15);
+  text(S[o.s].name + ' / ' + (o.f === 'none' ? '仕上げなし' : F[o.f].name), tx, b.y + 62, 10.5, '#8a6f5e', 'left', '500');
+  if (o.ai) text(o.whim ? '✦ お客さんの発明' : '✦ AIの気まぐれ', tx, b.y + 78, 10.5, '#d08a1a', 'left');
+  // patience
+  const pr = Math.max(0, c.patience / c.pmax);
+  ctx.fillStyle = '#eee2d2'; rr(b.x + 14, b.y + b.h - 14, b.w - 28, 7, 3.5); ctx.fill();
+  ctx.fillStyle = pr > .5 ? '#8ccf7a' : pr > .25 ? '#f0c36a' : '#e26a6a'; rr(b.x + 14, b.y + b.h - 14, (b.w - 28) * pr, 7, 3.5); ctx.fill();
+}
+function wrapText(t, x, y, maxW, lh) {
+  let line = '', ly = y; for (const ch of t) { const test = line + ch; if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, ly); line = ch; ly += lh; } else line = test; } ctx.fillText(line, x, ly);
+}
+function drawShelf() {
+  ctx.fillStyle = '#c98a58'; rr(8, SHELF_Y + 58, W - 16, 12, 4); ctx.fill();
+  ctx.fillStyle = '#a86f44'; ctx.fillRect(8, SHELF_Y + 66, W - 16, 4);
+  SAUCES.forEach((s, i) => {
+    const x = 45 + i * 75, y = SHELF_Y, locked = s.lv > g.lv, active = g.pan.sauce === s.id;
+    ctx.save(); if (locked) ctx.globalAlpha = .35;
+    ctx.fillStyle = s.bottle; rr(x - 16, y + 8, 32, 50, 8); ctx.fill();
+    ctx.fillStyle = '#5b4a3e'; rr(x - 8, y - 2, 16, 12, 3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; rr(x - 12, y + 22, 24, 22, 4); ctx.fill();
+    text(s.short.length > 4 ? s.short.slice(0, 4) : s.short, x, y + 33, 8.5, '#6b3f2a');
+    ctx.fillStyle = 'rgba(255,255,255,.3)'; rr(x - 13, y + 11, 6, 40, 3); ctx.fill();
+    if (active) { ctx.strokeStyle = '#e7a93a'; ctx.lineWidth = 2.5; rr(x - 19, y + 5, 38, 56, 10); ctx.stroke(); }
+    ctx.restore();
+    if (locked) { text('Lv' + s.lv, x, y + 33, 10, '#8a6f5e'); }
+  });
+}
+function drawPot() {
+  const p = g.pot, x = POT.x, y = POT.y;
+  // stove
+  ctx.fillStyle = '#5b5a60'; ctx.beginPath(); ctx.ellipse(x, y + 44, 66, 16, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#9ba0a8'; ctx.beginPath(); ctx.ellipse(x, y + 10, 58, 46, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#b8bcc3'; ctx.beginPath(); ctx.ellipse(x, y - 14, 56, 20, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#9ba0a8'; rr(x - 72, y - 20, 14, 10, 4); ctx.fill(); rr(x + 58, y - 20, 14, 10, 4); ctx.fill();
+  // water
+  const boiling = p.state === 'boiling';
+  ctx.fillStyle = boiling ? '#cfe5ef' : '#bcd9e8'; ctx.beginPath(); ctx.ellipse(x, y - 12, 50, 15, 0, 0, 7); ctx.fill();
+  if (boiling) {
+    drawPasta(x, y - 12, 34, null, 0, g.t * 2, .36);
+    p.bub.forEach(b => { const k = 1 - b.t; ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(x + b.x, y - 12 - k * 10, 2 + k * 2, 0, 7); ctx.fill(); });
+    // steam
+    for (let i = 0; i < 3; i++) { const k = (g.t * .6 + i / 3) % 1; ctx.fillStyle = `rgba(255,255,255,${(1 - k) * .5})`; ctx.beginPath(); ctx.arc(x - 20 + i * 20 + Math.sin(k * 6 + i) * 6, y - 30 - k * 40, 6 + k * 6, 0, 7); ctx.fill(); }
+    // gauge
+    const gx = x, gy = y - 78, gw = 110;
+    ctx.fillStyle = '#e4d6c6'; rr(gx - gw / 2, gy, gw, 12, 6); ctx.fill();
+    ctx.fillStyle = '#f0c36a'; rr(gx - gw / 2 + gw * .32, gy, gw * .16, 12, 0); ctx.fill(); rr(gx - gw / 2 + gw * .72, gy, gw * .16, 12, 0); ctx.fill();
+    ctx.fillStyle = '#8ccf7a'; rr(gx - gw / 2 + gw * .48, gy, gw * .24, 12, 0); ctx.fill();
+    const t = Math.min(1, p.t); ctx.fillStyle = t > .88 ? '#e26a6a' : '#6b3f2a'; ctx.beginPath(); ctx.moveTo(gx - gw / 2 + gw * t, gy - 2); ctx.lineTo(gx - gw / 2 + gw * t - 5, gy - 10); ctx.lineTo(gx - gw / 2 + gw * t + 5, gy - 10); ctx.fill();
+    if (p.t > 1) text('のびる！', gx, gy - 20, 12, '#e26a6a');
+  } else {
+    text('タップで茹でる', x, y - 12, 11, '#7a8690');
+  }
+}
+function drawPan() {
+  const pan = g.pan, x = PAN.x, y = PAN.y;
+  ctx.fillStyle = '#5b5a60'; ctx.beginPath(); ctx.ellipse(x, y + 40, 72, 16, 0, 0, 7); ctx.fill();
+  // handle
+  ctx.fillStyle = '#3b3530'; ctx.save(); ctx.translate(x, y); ctx.rotate(-.35); rr(50, -8, 62, 16, 8); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#4a4a50'; ctx.beginPath(); ctx.ellipse(x, y + 4, 68, 52, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#2f2f35'; ctx.beginPath(); ctx.ellipse(x, y, 60, 45, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.ellipse(x - 15, y - 14, 30, 12, -.3, 0, 7); ctx.fill();
+  if (pan.pasta) {
+    // sauce pool
+    if (pan.sauce) { ctx.globalAlpha = .55 + pan.coat * .3; ctx.fillStyle = S[pan.sauce].col; ctx.beginPath(); ctx.ellipse(x, y + 2, 50 - pan.coat * 6, 36 - pan.coat * 4, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+    drawPasta(x, y, 46, pan.sauce, pan.coat, pan.rot);
+    pan.tops.forEach(t => drawTopIcon(t.id, x + t.dx, y + t.dy - 6, 1.15, t.rot));
+    if (pan.fin !== 'none') { ctx.fillStyle = F[pan.fin].col; for (let i = 0; i < 18; i++) { ctx.beginPath(); ctx.arc(x - 36 + (i * 41 % 72), y - 24 + (i * 29 % 46), pan.fin === 'nori' ? 2.2 : 1.6, 0, 7); ctx.fill(); } }
+    if (pan.sauce && pan.coat < 1) {
+      ctx.fillStyle = 'rgba(255,250,240,.9)'; rr(x - 50, y + 54, 100, 10, 5); ctx.fill();
+      ctx.fillStyle = '#e7a93a'; rr(x - 50, y + 54, 100 * pan.coat, 10, 5); ctx.fill();
+      text('ぐるぐる', x, y + 76, 11, '#8a6f5e');
+    } else if (pan.sauce) { text('絡んだ！', x, y + 66, 11, '#3a8a4a'); }
+    else text('ソースをかけて', x, y + 66, 11, '#8a6f5e');
+    // trash
+    ctx.fillStyle = '#f1e2cc'; rr(TRASH.x, TRASH.y, TRASH.w, TRASH.h, 12); ctx.fill(); text('やり直す', TRASH.x + TRASH.w / 2, TRASH.y + 12, 10.5, '#6b3f2a');
+  } else {
+    text('茹でた麺をここへ', x, y, 11, '#8a9098');
+  }
+  // boil->pan hint
+  if (pan.pasta) {
+    const q = pan.pasta; text(q.v >= 1 ? '麺: アルデンテ' : q.v >= .6 ? '麺: まあまあ' : '麺: ' + q.label, x, y - 62, 11, q.v >= 1 ? '#3a8a4a' : q.v >= .6 ? '#8a6f5e' : '#c9553d');
+  }
+}
+function drawTray() {
+  ctx.fillStyle = '#e7d3b7'; rr(8, TRAY.y - 6, W - 16, TRAY.rows * (TRAY.ch + 2) + 10, 12); ctx.fill();
+  for (let i = 0; i < TRAY.cols * TRAY.rows; i++) {
+    const t = TOPS[i], cell = trayCell(i); if (!t) continue;
+    const locked = t.lv > g.lv;
+    ctx.fillStyle = locked ? '#e0d2bf' : t.odd ? '#fff3f6' : '#fffaf2'; rr(cell.x, cell.y, cell.w, cell.h, 10); ctx.fill();
+    if (locked) { text('Lv' + t.lv, cell.x + cell.w / 2, cell.y + cell.h / 2, 11, '#a08a78'); continue; }
+    drawTopIcon(t.id, cell.x + cell.w / 2, cell.y + 16, 1.1);
+    text(t.name, cell.x + cell.w / 2, cell.y + 35, 8.5, '#6b3f2a');
+  }
+}
+function drawBottom() {
+  // shakers
+  for (let i = 1; i < FINS.length; i++) {
+    const f = FINS[i], x = 36 + (i - 1) * 56, y = SHAKER_Y, active = g.pan.fin === f.id;
+    const sh = g.shake && g.shake.id === f.id ? Math.sin(g.t * 40) * 3 : 0;
+    ctx.save(); ctx.translate(x + sh, y);
+    ctx.fillStyle = '#fffaf2'; rr(-13, -14, 26, 30, 7); ctx.fill();
+    ctx.fillStyle = '#9ba0a8'; rr(-13, -22, 26, 10, 4); ctx.fill();
+    ctx.fillStyle = f.col; rr(-9, -4, 18, 16, 4); ctx.fill();
+    if (active) { ctx.strokeStyle = '#e7a93a'; ctx.lineWidth = 2.5; rr(-16, -25, 32, 44, 9); ctx.stroke(); }
+    ctx.restore();
+    text(f.name.length > 4 ? f.name.slice(0, 4) : f.name, x, y + 26, 8.5, '#6b3f2a');
+  }
+  // serve button
+  const ready = g.pan.pasta && g.pan.sauce && g.customers[0] && !g.reaction;
+  ctx.fillStyle = ready ? '#d9634a' : '#d9c7b4'; rr(SERVE.x, SERVE.y + 4, SERVE.w, SERVE.h, 26); ctx.fill();
+  ctx.fillStyle = ready ? '#e8775e' : '#e2d2c0'; rr(SERVE.x, SERVE.y, SERVE.w, SERVE.h, 26); ctx.fill();
+  text('できあがり！', SERVE.x + SERVE.w / 2, SERVE.y + SERVE.h / 2, 16, ready ? '#fff' : '#a8988a');
+}
+
+// ---------- ui ----------
+function resize() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  cssScale = Math.min(vw / W, vh / H); const dpr = Math.min(2, window.devicePixelRatio || 1); scale = cssScale * dpr;
+  cv.width = Math.round(W * scale); cv.height = Math.round(H * scale); cv.style.width = Math.round(W * cssScale) + 'px'; cv.style.height = Math.round(H * cssScale) + 'px';
+}
+window.addEventListener('resize', resize); resize();
+
+function showTitle() {
+  const lv = levelOf(save.total);
+  document.getElementById('t-lvl').textContent = save.day > 1 ? `お店 Lv${lv}  ${save.day}日目  これまでの売上 ¥${save.total.toLocaleString()}` : 'はじめてのお店';
+  document.getElementById('title').classList.remove('hidden');
+}
+document.getElementById('start').onclick = () => { ensureAudio(); document.getElementById('title').classList.add('hidden'); newDay(); sfx.ding(); };
+document.getElementById('again').onclick = () => { document.getElementById('result').classList.add('hidden'); save.day++; persist(); newDay(); sfx.ding(); };
+document.getElementById('save').onclick = () => { const a = document.createElement('a'); a.download = 'pasta-' + Date.now() + '.png'; a.href = cv.toDataURL('image/png'); a.click(); };
+document.getElementById('share').onclick = () => {
+  const t = `ぐるぐるパスタ屋さん ${save.day}日目: 売上¥${g.money.toLocaleString()} お客さん${g.served}人 (お店Lv${levelOf(save.total)}) #ぐるぐるパスタ屋さん`;
+  window.open('https://x.com/intent/post?text=' + encodeURIComponent(t) + '&url=' + encodeURIComponent(location.href.split('?')[0]), '_blank');
+};
+newDay(); g.phase = 'title'; showTitle();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
