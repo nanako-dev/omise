@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<script src="../ga.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>クレープシミュレーター</title>
 <meta name="description" content="生地を落として、トンボで薄くのばして、焼けたらクリームと果物をのせて折る。本物みたいに生地が広がって焼けるクレープ屋さん。">
@@ -842,6 +843,7 @@ function resetPresentation() { presGroup.visible = false; while (presGroup.child
 function finish() {
   g.phase = 'photo'; sfx.done();
   const st = stats();
+  track('crepe_finish', { items: g.items.length, holes: st.holes, burnt: st.burnt });
   let msg = st.maxC > 1.15 ? 'ちょっと焦げたけど、それも味' : st.holes > 60 ? '穴あきクレープ。中身が見えて楽しい' : st.avgC > .8 ? 'こんがり、お店みたい！' : 'やさしい色のクレープ';
   if (g.items.length === 0) msg = 'なにものってない、素クレープ。通だね';
   g.photo = { msg, t: 0 };
@@ -886,7 +888,7 @@ function openGallery() {
 }
 
 // ================= buttons =================
-document.getElementById('start').onclick = () => { ensureAudio(); document.getElementById('title').classList.add('hidden'); newCrepe(); };
+document.getElementById('start').onclick = () => { ensureAudio(); track('crepe_start'); document.getElementById('title').classList.add('hidden'); newCrepe(); };
 document.getElementById('again').onclick = () => { document.getElementById('result').classList.add('hidden'); newCrepe(); };
 document.getElementById('b-reset').onclick = () => { document.getElementById('result').classList.add('hidden'); newCrepe(); sfx.tap(); };
 document.getElementById('b-done').onclick = () => { if (g.phase !== 'cook') return; if (g.fold >= 2) finish(); else say(g.fold === 1 ? 'もう一回折ってから' : '手ぶらでスワイプして折ってから「できた」だよ'); };
@@ -894,8 +896,8 @@ document.getElementById('b-gallery').onclick = openGallery;
 document.getElementById('held').onclick = () => { setHeld(null); say('手ぶら。具をつかんで動かせるよ。スワイプで折る'); sfx.tap(); };
 document.getElementById('b-fold').onclick = () => { if (g.phase !== 'cook') return; if (g.fold === 0) doFold(1, 0, null); else if (g.fold === 1) doFold(g.folds[0].axis === 'x' ? 0 : 1, g.folds[0].axis === 'x' ? 1 : 0, null); };
 document.getElementById('g-close').onclick = () => document.getElementById('gallery').classList.add('hidden');
-document.getElementById('save').onclick = () => { render(); const a = document.createElement('a'); a.download = 'crepe-' + Date.now() + '.png'; a.href = renderer.domElement.toDataURL('image/png'); a.click(); };
-document.getElementById('share').onclick = () => { const t = `クレープシミュレーターで作ったよ 🥞 ${g.photo ? g.photo.msg : ''} #クレープシミュレーター`; open('https://x.com/intent/post?text=' + encodeURIComponent(t) + '&url=' + encodeURIComponent(location.href.split('?')[0]), '_blank'); };
+document.getElementById('save').onclick = () => { track('crepe_save'); render(); const a = document.createElement('a'); a.download = 'crepe-' + Date.now() + '.png'; a.href = renderer.domElement.toDataURL('image/png'); a.click(); };
+document.getElementById('share').onclick = () => { track('crepe_share'); const t = `クレープシミュレーターで作ったよ 🥞 ${g.photo ? g.photo.msg : ''} #クレープシミュレーター`; open('https://x.com/intent/post?text=' + encodeURIComponent(t) + '&url=' + encodeURIComponent(location.href.split('?')[0]), '_blank'); };
 
 newCrepe(); g.phase = 'title';
 document.getElementById('loading').remove();
