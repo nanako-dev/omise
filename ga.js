@@ -1,6 +1,6 @@
 // Google アナリティクス (GA4)。測定 ID はここ 1 か所だけ。空のうちは何も送らない。
 (function () {
-  var ID = ''; // 例: 'G-XXXXXXXXXX'
+  var ID = 'G-F5CDXGCPRV';
   window.dataLayer = window.dataLayer || [];
   function gtag() { window.dataLayer.push(arguments); }
   window.track = function (name, params) { if (ID) gtag('event', name, params || {}); };
