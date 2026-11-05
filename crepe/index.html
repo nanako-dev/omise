@@ -237,19 +237,22 @@ function completeFlip() {
 }
 function canFill() { return stats().n > 300; }
 const FRUIT_R = { ichigo: .1, banana: .085, kiwi: .095, mikan: .095, blueberry: .055, chip: .09, ice: .12, cookie: .1 }, FRUIT_H = { ichigo: .07, banana: .05, kiwi: .05, mikan: .06, blueberry: .11, chip: .05, ice: .2, cookie: .035 };
-function stackHeight(x, z, r) {
+function stackHeight(x, z, r, ex) {
   let top = 0;
   for (const it of g.items) {
+    if (it === ex) continue;
     if (it.pts) { if (it.type !== 'cream') continue; for (const p of it.pts) if (Math.hypot(p.x - x, p.z - z) < r + .055) top = Math.max(top, (it.lift || 0) + .085); }
     else if (it !== g.dragItem && Math.hypot(it.x - x, it.z - z) < r + FRUIT_R[it.sub]) top = Math.max(top, (it.lift || 0) + FRUIT_H[it.sub]);
   }
   return top;
 }
-function addItem(sub, x, z) {
-  const k = cellAt(x, z); if (k < 0 || h[k] < .03) { say('生地の上にのせてね'); return; }
+function addItem(sub, x, z, loose) {
+  const k = cellAt(x, z); if (!loose && (k < 0 || h[k] < .03)) { say('生地の上にのせてね'); return null; }
   const it = { type: 'fruit', sub, x, z, rot: Math.random() * Math.PI * 2, mesh: makeFruitMesh(sub), lift: stackHeight(x, z, FRUIT_R[sub]) };
-  crepeGroup.add(it.mesh); g.items.push(it); sfx.plop();
+  crepeGroup.add(it.mesh); g.items.push(it); if (!loose) sfx.plop();
+  return it;
 }
+function grabItem(it, p, fresh) { g.dragItem = it; it.tx = p.x; it.tz = p.z; it.fresh = !!fresh; it.baseScale = it.mesh.scale.x; it.mesh.scale.setScalar(it.baseScale * 1.25); it.lift = .18 + stackHeight(p.x, p.z, FRUIT_R[it.sub]); }
 function addStroke(type, sub, x, z) {
   const k = cellAt(x, z); if (k < 0 || h[k] < .03) return;
   const last = g.items[g.items.length - 1];
@@ -301,7 +304,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#fbe6ec'); scene.fog = new THREE.Fog('#fbe6ec', 7.5, 13);
 const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .04).texture; scene.environmentIntensity = .6;
 const camera = new THREE.PerspectiveCamera(50, 1, .1, 50);
-const CAM = { cook: { pos: new THREE.Vector3(.26, 4.2, 3.4), look: new THREE.Vector3(.26, .05, .3) }, photo: { pos: new THREE.Vector3(0, 1.15, 3.0), look: new THREE.Vector3(0, .6, 0) } };
+const CAM = { cook: { pos: new THREE.Vector3(.26, 4.2, 3.4), look: new THREE.Vector3(.26, .05, .3) }, fill: { pos: new THREE.Vector3(.42, 3.35, 2.35), look: new THREE.Vector3(.42, .05, .12) }, photo: { pos: new THREE.Vector3(0, 1.15, 3.0), look: new THREE.Vector3(0, .6, 0) } };
 camera.position.copy(CAM.cook.pos); camera.lookAt(CAM.cook.look);
 const camState = { pos: CAM.cook.pos.clone(), look: CAM.cook.look.clone() };
 
@@ -374,7 +377,7 @@ function makePick(mesh, info, r = .17) { const hit = new THREE.Mesh(new THREE.Sp
 const selRing = new THREE.Mesh(new THREE.RingGeometry(.17, .22, 40), new THREE.MeshBasicMaterial({ color: '#ef8fa5', transparent: true, opacity: .9, side: THREE.DoubleSide })); selRing.rotation.x = -Math.PI / 2; selRing.visible = false; scene.add(selRing);
 
 // ---------- tool tray (right) ----------
-{ const tr = asset('tray') || rbox(.54, .07, 2.0, .1, mats.wood, 0, 0, 0); tr.position.set(1.36, -.27, .35); scene.add(tr); standParts.push(tr); }
+const rackTray = asset('tray') || rbox(.54, .07, 2.0, .1, mats.wood, 0, 0, 0); rackTray.position.set(1.36, -.27, .35); scene.add(rackTray); standParts.push(rackTray);
 function makeLadle() { const a = asset('ladle'); if (a) return a; const gp = new THREE.Group(); const cup = cyl(.13, .1, .11, mats.white, 0, .055, 0, gp, 32); const bat = new THREE.Mesh(new THREE.CircleGeometry(.115, 32), mats.batter); bat.rotation.x = -Math.PI / 2; bat.position.y = .105; gp.add(bat); const hd = cyl(.022, .022, .42, mats.white, .27, .12, 0, gp, 14); hd.rotation.z = -1.15; return gp; }
 function makeTombo() { const a = asset('tombo'); if (a) return a; const gp = new THREE.Group(); cyl(.016, .016, .46, mats.woodDark, 0, 0, 0, gp, 14).rotation.z = Math.PI / 2; cyl(.014, .014, .4, mats.woodDark, 0, 0, .2, gp, 14).rotation.x = Math.PI / 2; return gp; }
 function makeTurner() { const a = asset('turner'); if (a) return a; const gp = new THREE.Group(); rbox(.3, .02, .18, .05, mats.cream, 0, 0, 0, gp); const hd = cyl(.02, .02, .34, mats.pink, .3, .03, 0, gp, 14); hd.rotation.z = -1.35; return gp; }
@@ -390,8 +393,10 @@ tools.ladle.position.set(1.36, -.22, -.38); tools.ladle.rotation.y = -.4;
 tools.tombo.position.set(1.36, -.2, .06); tools.tombo.rotation.y = .5;
 tools.turner.position.set(1.36, -.21, .42); tools.turner.rotation.y = 1.25;
 const bagMeshes = SUBS.cream.map((s, i) => { const m = makePick(makeBag(s.col), { kind: 'cream', id: s.id, name: s.name }, .14); m.position.set(1.27 + (i % 2) * .18, -.23, .76 + Math.floor(i / 2) * .22); m.rotation.z = (i % 2 ? -.35 : .35); scene.add(m); standParts.push(m); return m; });
-const bottleMeshes = SUBS.sauce.map((s, i) => { const m = makePick(makeBottle(s.col), { kind: 'sauce', id: s.id, name: s.name }, .14); m.position.set(1.27 + (i % 2) * .18, -.23, 1.2 + Math.floor(i / 2) * .2); scene.add(m); standParts.push(m); return m; });
+const bottleMeshes0 = SUBS.sauce.map((s, i) => { const m = makePick(makeBottle(s.col), { kind: 'sauce', id: s.id, name: s.name }, .14); m.position.set(1.27 + (i % 2) * .18, -.23, 1.2 + Math.floor(i / 2) * .2); scene.add(m); standParts.push(m); return m; });
 const heldGroup = new THREE.Group(); scene.add(heldGroup); let heldMesh = null;
+const aimRing = new THREE.Mesh(new THREE.RingGeometry(.78, 1, 48), new THREE.MeshBasicMaterial({ color: '#ef8fa5', transparent: true, opacity: .8, side: THREE.DoubleSide, depthWrite: false })); aimRing.rotation.x = -Math.PI / 2; aimRing.renderOrder = 5; aimRing.visible = false; scene.add(aimRing);
+const aimDot = new THREE.Mesh(new THREE.CircleGeometry(.5, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .35, depthWrite: false })); aimDot.rotation.x = -Math.PI / 2; aimDot.renderOrder = 4; aimRing.add(aimDot);
 
 // ---------- 2D fruit faces (textures) ----------
 const texCache = {};
@@ -462,6 +467,10 @@ function drawFruit2D(x2, id) {
 
 // ---------- fruit bowls (front) ----------
 const bowlGeo = new THREE.LatheGeometry([new THREE.Vector2(.02, 0), new THREE.Vector2(.12, .01), new THREE.Vector2(.17, .06), new THREE.Vector2(.2, .13), new THREE.Vector2(.21, .15), new THREE.Vector2(.19, .15), new THREE.Vector2(.18, .13), new THREE.Vector2(.15, .06), new THREE.Vector2(.1, .03), new THREE.Vector2(.02, .03)], 36);
+const bottleMeshes = bottleMeshes0;
+// 寄ったときに棚ごと鉄板側へスライドさせる (画面から切れないように)
+const rackParts = [rackTray, ...Object.values(tools), ...bagMeshes, ...bottleMeshes]; rackParts.forEach(o => { o.userData.x0 = o.position.x; });
+let rackDx = 0;
 const trayFruits = SUBS.fruit.map((s, i) => {
   const gp = new THREE.Group(); const bowl = asset('bowl') || mesh(bowlGeo, mats.white, 0, 0, 0, gp); if (bowl.parent !== gp) gp.add(bowl); bowl.traverse(o => { if (o.isMesh) o.material.side = THREE.DoubleSide; });
   for (let q = 0; q < 3; q++) { const f = makeFruitMesh(s.id); const a = q / 3 * Math.PI * 2 + i; f.position.set(Math.cos(a) * .06, .03 + q * .02, Math.sin(a) * .06); f.rotation.y = a; f.scale.setScalar(.85); gp.add(f); }
@@ -624,8 +633,11 @@ function spawnDrop(x, z) { if (drops.length > 30) return; const d = new THREE.Me
 
 // ================= input =================
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.02);
-function toNdc(e) { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
-function worldAt(e) { toNdc(e); const p = new THREE.Vector3(); return ray.ray.intersectPlane(plane, p) ? p : null; }
+const RACK_IN = -.5; // 寄ったとき棚を鉄板側へ寄せる量
+const TIP_OFF = 72; // 指で画面が隠れないように、タッチでは指のこの分だけ上 (px) を「先端」として扱う
+function tipOff(e) { return (e.pointerType === 'touch' || e.pointerType === 'pen') ? TIP_OFF : 0; }
+function toNdc(e, off = 0) { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - off - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function worldAt(e, atTip = true) { toNdc(e, atTip ? tipOff(e) : 0); const p = new THREE.Vector3(); return ray.ray.intersectPlane(plane, p) ? p : null; }
 function pickAt(e) { toNdc(e); const hits = ray.intersectObjects(pickables, true); return hits.length ? hits[0].object.userData.pick : null; }
 function itemNear(p) { let best = null, bd = 1e9; for (const it of g.items) { if (it.pts || !it.mesh || !it.mesh.visible) continue; const d = Math.hypot(it.x - p.x, it.z - p.z); const tol = (FRUIT_R[it.sub] || .1) + .14; if (d < tol && d < bd) { bd = d; best = it; } } return best; }
 function itemAt(e) { toNdc(e); const meshes = g.items.filter(it => !it.pts && it.mesh && it.mesh.visible).map(it => it.mesh); if (!meshes.length) return null; const hits = ray.intersectObjects(meshes, true); if (!hits.length) return null; let o = hits[0].object; while (o && !g.items.some(it => it.mesh === o)) o = o.parent; return g.items.find(it => it.mesh === o) || null; }
@@ -649,17 +661,18 @@ canvas.addEventListener('pointerdown', e => {
   ensureAudio(); if (!g || g.phase !== 'cook' || g.foldAnim || g.flipAnim) return; try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   const pk = pickAt(e);
   if (pk) { if (g.tool === pk.kind && g.sub === pk.id) { setHeld(null); say('手ぶら。具をつかんで動かせるよ。スワイプで折る'); } else { setHeld(pk); sfx.tap(); toolHint(pk); } return; }
-  const p = worldAt(e); if (!p || Math.hypot(p.x, p.z) > 1.25) return;
-  if (g.fold === 0 && !g.flipAnim && (g.tool === null || g.tool === 'fruit')) { const it = g.tool === null ? (itemAt(e) || itemNear(p)) : itemAt(e); if (it) { g.dragItem = it; it.lift = stackHeight(p.x, p.z, FRUIT_R[it.sub]) ; g.pointer = null; sfx.tap(); return; } }
+  const p = worldAt(e), pf = worldAt(e, false); if (!p || !pf || (Math.hypot(p.x, p.z) > 1.25 && Math.hypot(pf.x, pf.z) > 1.25)) return;
+  // つかむ判定は指が実際に触れた場所 (見えている物を触る)、持ち上げた後は先端 (指の上) に付いてくる
+  if (g.fold === 0 && !g.flipAnim && (g.tool === null || g.tool === 'fruit')) { const it = g.tool === null ? (itemAt(e) || itemNear(pf)) : itemAt(e); if (it) { grabItem(it, p, false); g.pointer = null; sfx.tap(); return; } }
   g.pointer = p; g.last = p; g.path = [p]; heldGroup.userData.fresh = true;
   if (g.fold >= 2) { say('四つ折りできてる。上の「できた」で包もう'); g.pointer = null; return; }
   if (g.fold === 1 && g.tool !== null) { say('もう一回折るときは手ぶらでスワイプ、か上の「折る」ボタン'); g.pointer = null; return; }
-  if (g.tool === 'fruit') { if (!canFill()) say('先に生地を焼いてね'); else addItem(g.sub, p.x, p.z); g.pointer = null; return; }
+  if (g.tool === 'fruit') { if (!canFill()) say('先に生地を焼いてね'); else { const it = addItem(g.sub, p.x, p.z, true); if (it) grabItem(it, p, true); } g.pointer = null; return; }
   if ((g.tool === 'cream' || g.tool === 'sauce') && !canFill()) { say('先に生地を焼いてね'); g.pointer = null; }
 });
 canvas.addEventListener('pointermove', e => {
   if (!g) return;
-  if (g.dragItem) { const p = worldAt(e); if (p) { g.dragItem.x = p.x; g.dragItem.z = p.z; g.dragItem.lift = .12 + stackHeight(p.x, p.z, FRUIT_R[g.dragItem.sub]); } return; }
+  if (g.dragItem) { const p = worldAt(e); if (p) { g.dragItem.tx = p.x; g.dragItem.tz = p.z; g.dragItem.lift = .18 + stackHeight(p.x, p.z, FRUIT_R[g.dragItem.sub]); } return; }
   if (!g.pointer) return; const p = worldAt(e); if (!p) return;
   if (g.tool === 'tool' && g.sub === 'tombo') spread(g.last, p);
   else if (g.tool === 'cream') addStroke('cream', g.sub, p.x, p.z);
@@ -668,7 +681,7 @@ canvas.addEventListener('pointermove', e => {
 });
 function release() {
   if (!g) return;
-  if (g.dragItem) { const it = g.dragItem; g.dragItem = null; const k = cellAt(it.x, it.z); if (k < 0 || h[k] < .03) { crepeGroup.remove(it.mesh); g.items.splice(g.items.indexOf(it), 1); say('トレイに戻した'); } else { it.lift = stackHeight(it.x, it.z, FRUIT_R[it.sub]); sfx.plop(); } return; }
+  if (g.dragItem) { const it = g.dragItem; g.dragItem = null; if (it.tx !== undefined) { it.x = it.tx; it.z = it.tz; } it.mesh.scale.setScalar(it.baseScale || 1); const k = cellAt(it.x, it.z); if (k < 0 || h[k] < .03) { crepeGroup.remove(it.mesh); g.items.splice(g.items.indexOf(it), 1); say(it.fresh ? '生地の上にのせてね' : 'トレイに戻した'); } else { it.lift = stackHeight(it.x, it.z, FRUIT_R[it.sub], it); sfx.plop(); } it.fresh = false; return; }
   if (!g.pointer) return;
   if (g.tool === 'tool' && g.sub === 'turner' && g.path.length > 3) tryFlip(g.path);
   if (g.tool === null && g.path.length > 3) tryFold(g.path);
@@ -752,6 +765,12 @@ function update(dt) {
     if (Math.random() < .35 && g.fold === 0) { const k = Math.floor(Math.random() * N * N); if (h[k] > .05 && !blocked[k] && (g.flipped ? c2[k] : c[k]) > .25) { const i = k % N, j = (k - i) / N; spawnSteam(gxOf(i), gzOf(j), false); } }
     if (g.smoke > 40 && Math.random() < .5) { const k = Math.floor(Math.random() * N * N); if (h[k] > .05 && (c[k] > 1.15 || c2[k] > 1.15)) { const i = k % N, j = (k - i) / N; spawnSteam(gxOf(i), gzOf(j), true); } }
     autoComment(dt);
+    if (g.dragItem && g.dragItem.tx !== undefined) { const it = g.dragItem, kk = 1 - Math.exp(-dt * 22); it.x += (it.tx - it.x) * kk; it.z += (it.tz - it.z) * kk; }
+    // 置く・塗る場所のリング (指で隠れないための目印)
+    let aim = null, ar = .1;
+    if (g.dragItem) { aim = g.dragItem; ar = (FRUIT_R[g.dragItem.sub] || .1) + .05; }
+    else if (g.pointer && heldMesh && g.tool !== null) { aim = g.pointer; ar = g.tool === 'tool' ? (g.sub === 'ladle' ? .15 : .13) : .075; }
+    aimRing.visible = !!aim; if (aim) { const k = cellAt(aim.x, aim.z); aimRing.position.set(aim.x, surfaceY(k) + .008, aim.z); aimRing.scale.setScalar(ar); }
     heldGroup.visible = !!heldMesh && !!g.pointer && !g.dragItem;
     if (heldMesh && g.pointer) {
       const tx = g.pointer.x, tz = g.pointer.z, ty = (g.sub === 'tombo' || g.sub === 'turner' ? .06 : .3);
@@ -765,8 +784,15 @@ function update(dt) {
   } else if (g.phase === 'photo') { g.photo.t += dt; presGroup.rotation.y = Math.sin(g.photo.t * .6) * .12; (presGroup.userData.sparks || []).forEach(sp => { const k = Math.sin(g.photo.t * 3 + sp.userData.ph * 1.3); sp.scale.setScalar(.1 + Math.max(0, k) * .12); sp.material.rotation = g.photo.t * .5 + sp.userData.ph; }); cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; }
   for (let i = drops.length - 1; i >= 0; i--) { const d = drops[i]; d.userData.vy -= 4 * dt; d.position.y += d.userData.vy * dt; if (d.position.y < .02) { scene.remove(d); drops.splice(i, 1); } }
   for (let i = steams.length - 1; i >= 0; i--) { const s = steams[i]; s.userData.t += dt; const k = s.userData.t / s.userData.life; s.position.y += dt * .5; s.position.x += s.userData.vx * dt; s.scale.setScalar(.2 + k * .5); s.material.opacity = (1 - k) * .5; if (k >= 1) { scene.remove(s); s.material.dispose(); steams.splice(i, 1); } }
-  camera.position.lerp(camState.pos, .08); camera.lookAt(camState.look);
-  const st = g.stats || stats(); document.getElementById('s-ml-t').textContent = Math.round(g.ml) + ' ml';
+  const st = g.stats || stats();
+  if (g.phase === 'cook') { // 具をのせている間は鉄板に寄る (指に対して具が大きく見える)
+    const topping = g.tool === 'cream' || g.tool === 'sauce' || g.tool === 'fruit' || (g.tool === null && g.items.length > 0);
+    const zoom = g.fold === 0 && !g.foldAnim && !g.flipAnim && st.n > 300 && topping;
+    camState.pos.copy(zoom ? CAM.fill.pos : CAM.cook.pos); camState.look.copy(zoom ? CAM.fill.look : CAM.cook.look);
+    rackDx += ((zoom ? RACK_IN : 0) - rackDx) * .08; for (const o of rackParts) o.position.x = o.userData.x0 + rackDx;
+    if (g.tool) { const src = pickables.find(m => m.userData.info && m.userData.info.kind === g.tool && m.userData.info.id === g.sub); if (src && src.userData.x0 !== undefined) { selRing.position.x = src.position.x; labelSprite.position.x = Math.min(1.1, Math.max(-.45, src.position.x)); } }
+  }
+  camera.position.lerp(camState.pos, .08); camera.lookAt(camState.look); document.getElementById('s-ml-t').textContent = Math.round(g.ml) + ' ml';
   const sc = document.getElementById('s-cook'); document.getElementById('s-cook-t').textContent = st.n < 100 ? '生地なし' : st.maxC > 1.15 ? '焦げあり' : st.avgC > .85 ? 'こんがり' : st.avgC > .5 ? '焼けてきた' : '生'; sc.style.color = st.maxC > 1.15 ? '#c9553d' : st.avgC > .75 ? '#b86a2a' : '#6b3f2a';
   const sh = document.getElementById('s-holes'); sh.classList.toggle('hidden', !(g.torn > 0 && st.holes > 10)); document.getElementById('s-holes-t').textContent = '穴 ' + st.holes;
   const steps = [g.ml > 10, st.area > .35, st.avgC > .5, g.items.length > 0, g.fold >= 2, g.phase === 'photo'];
@@ -868,7 +894,7 @@ function finish() {
   [[-.08, 1.52, .1, .5], [.06, 1.54, .08, -.4]].forEach(([x, y, z, rz]) => { const lf = new THREE.Mesh(new THREE.SphereGeometry(.05, 12, 8), mats.leafDark); lf.scale.set(1.6, .25, 1); lf.position.set(x, y, z); lf.rotation.z = rz; peekGroup.add(lf); });
   for (let i = 0; i < 5; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, transparent: true, depthTest: false })); sp.scale.set(.16, .16, 1); sp.position.set(-.75 + i * .38 + (i % 2) * .1, 1.25 + (i % 3) * .2, .4); sp.userData.ph = i; peekGroup.add(sp); presGroup.userData.sparks = (presGroup.userData.sparks || []).concat([sp]); }
   fruits.forEach((it, i) => { const m = makeFruitMesh(it.sub); const a = (i - (fruits.length - 1) / 2) * .5; m.position.set(Math.sin(a) * .33, 1.2 - Math.abs(a) * .04, .06 + Math.cos(a) * .33); m.rotation.y = a; m.rotation.x = .95; m.scale.setScalar(1.25); m.rotation.z = (Math.random() - .5) * .5; m.scale.setScalar(1.15); peekGroup.add(m); });
-  presGroup.visible = true; plate.visible = rim.visible = false; standParts.forEach(o => o.visible = false); heldGroup.visible = false; selRing.visible = false; labelSprite.visible = false;
+  presGroup.visible = true; plate.visible = rim.visible = false; standParts.forEach(o => o.visible = false); heldGroup.visible = false; selRing.visible = false; aimRing.visible = false; labelSprite.visible = false;
   camState.pos.copy(CAM.photo.pos); camState.look.copy(CAM.photo.look);
   document.getElementById('status').classList.add('hidden'); document.getElementById('staff').classList.add('hidden');
   document.getElementById('r-msg').textContent = msg;
