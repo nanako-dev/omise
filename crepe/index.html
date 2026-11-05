@@ -36,6 +36,7 @@
   #say::after { content:''; position:absolute; left:-9px; bottom:18px; border:8px solid transparent; border-right-color:#fff; }
   #held { position:fixed; right:10px; bottom:calc(env(safe-area-inset-bottom) + 104px); z-index:3; display:flex; align-items:center; gap:8px; background:#fff; border:3px solid var(--pink); border-radius:18px; padding:6px 12px 6px 6px; box-shadow:var(--shadow); cursor:pointer; font-family:inherit; }
   #held canvas { width:38px; height:38px; background:var(--pink2); border-radius:12px; }
+  @media (max-aspect-ratio: 4/5) { #held { bottom:auto; top:calc(env(safe-area-inset-top) + 124px); } }
   #held b { display:block; font-size:12px; color:var(--cocoa); font-weight:900; }
   #held small { display:block; font-size:10px; color:var(--berry); font-weight:900; }
   .panel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(86vw,330px); background:#fff; border-radius:30px; padding:20px 18px 18px; box-shadow:0 14px 34px rgba(190,120,130,.28); text-align:center; z-index:9; }
@@ -478,6 +479,27 @@ const trayFruits = SUBS.fruit.map((s, i) => {
   contact(0, 0, .3, .3, .004, gp); gp.position.set(-.92 + i * .38, -.27, 1.5); scene.add(gp); standParts.push(gp); return gp;
 });
 
+// ---------- layout: 横長 = 右の棚、縦長 (スマホ) = 鉄板を画面幅いっぱいにして道具は下に 3 列 ----------
+const LAYOUT = {
+  land: { cam: { pos: [.26, 4.2, 3.4], look: [.26, .05, .3] }, tray: [1.36, -.27, .35, 0], ladle: [1.36, -.22, -.38, -.4], tombo: [1.36, -.2, .06, .5], turner: [1.36, -.21, .42, 1.25],
+    bag: i => [1.27 + (i % 2) * .18, -.23, .76 + Math.floor(i / 2) * .22, i % 2 ? -.35 : .35], bottle: i => [1.27 + (i % 2) * .18, -.23, 1.2 + Math.floor(i / 2) * .2], fruit: i => [-.92 + i * .38, -.27, 1.5] },
+  port: { cam: { pos: [0, 3.65, 1.65], look: [0, .05, .85] }, tray: [0, -.27, 1.38, Math.PI / 2], ladle: [-.62, -.22, 1.38, .9], tombo: [-.02, -.2, 1.38, 1.75], turner: [.6, -.21, 1.38, -1.6],
+    bag: i => [-.88 + i * .25, -.23, 1.76, 0], bottle: i => [.12 + i * .25, -.23, 1.76, 0], fruit: i => [-.95 + i * .38, -.27, 2.16], small: 1.3 },
+};
+let PORTRAIT = false;
+function applyLayout(portrait) {
+  PORTRAIT = portrait; const L = portrait ? LAYOUT.port : LAYOUT.land;
+  const put = (o, a) => { o.position.set(a[0], a[1], a[2]); if (a.length > 3) o.rotation.y = a[3]; o.userData.x0 = a[0]; };
+  put(rackTray, L.tray); put(tools.ladle, L.ladle); put(tools.tombo, L.tombo); put(tools.turner, L.turner);
+  bagMeshes.forEach((m, i) => { const a = L.bag(i); put(m, a); m.rotation.z = a[3]; m.scale.setScalar(L.small || 1); });
+  bottleMeshes.forEach((m, i) => { put(m, L.bottle(i)); m.scale.setScalar(L.small || 1); });
+  cat3d.visible = !portrait;
+  trayFruits.forEach((m, i) => put(m, L.fruit(i)));
+  CAM.cook.pos.fromArray(L.cam.pos); CAM.cook.look.fromArray(L.cam.look);
+  if (g && g.phase === 'cook') { camState.pos.copy(CAM.cook.pos); camState.look.copy(CAM.cook.look); }
+  if (g && g.tool) updateLabel({ kind: g.tool, id: g.sub, name: document.getElementById('held-t').textContent });
+}
+
 // ---------- 3D cat (staff) ----------
 const cat3d = asset('cat') || new THREE.Group(); scene.add(cat3d); cat3d.position.set(.05, -.05, -1.7); cat3d.scale.setScalar(.92);
 if (!A) (function () {
@@ -634,7 +656,7 @@ function spawnDrop(x, z) { if (drops.length > 30) return; const d = new THREE.Me
 // ================= input =================
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.02);
 const RACK_IN = -.5; // 寄ったとき棚を鉄板側へ寄せる量
-const TIP_OFF = 72; // 指で画面が隠れないように、タッチでは指のこの分だけ上 (px) を「先端」として扱う
+const TIP_OFF = 0; // 指の真下で作業する (上にずらす方式はユーザーが却下)
 function tipOff(e) { return (e.pointerType === 'touch' || e.pointerType === 'pen') ? TIP_OFF : 0; }
 function toNdc(e, off = 0) { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - off - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
 function worldAt(e, atTip = true) { toNdc(e, atTip ? tipOff(e) : 0); const p = new THREE.Vector3(); return ray.ray.intersectPlane(plane, p) ? p : null; }
@@ -787,7 +809,7 @@ function update(dt) {
   const st = g.stats || stats();
   if (g.phase === 'cook') { // 具をのせている間は鉄板に寄る (指に対して具が大きく見える)
     const topping = g.tool === 'cream' || g.tool === 'sauce' || g.tool === 'fruit' || (g.tool === null && g.items.length > 0);
-    const zoom = g.fold === 0 && !g.foldAnim && !g.flipAnim && st.n > 300 && topping;
+    const zoom = !PORTRAIT && g.fold === 0 && !g.foldAnim && !g.flipAnim && st.n > 300 && topping;
     camState.pos.copy(zoom ? CAM.fill.pos : CAM.cook.pos); camState.look.copy(zoom ? CAM.fill.look : CAM.cook.look);
     rackDx += ((zoom ? RACK_IN : 0) - rackDx) * .08; for (const o of rackParts) o.position.x = o.userData.x0 + rackDx;
     if (g.tool) { const src = pickables.find(m => m.userData.info && m.userData.info.kind === g.tool && m.userData.info.id === g.sub); if (src && src.userData.x0 !== undefined) { selRing.position.x = src.position.x; labelSprite.position.x = Math.min(1.1, Math.max(-.45, src.position.x)); } }
@@ -824,7 +846,7 @@ composer.addPass(new OutputPass());
 const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); vec2 d = vUv - 0.5; float v = 1.0 - dot(d, d) * 0.5; c.rgb *= v; c.rgb = mix(c.rgb, c.rgb * vec3(1.05, 0.985, 0.965), 0.7); c.rgb = (c.rgb - 0.5) * 1.06 + 0.5; c.rgb = mix(vec3(dot(c.rgb, vec3(0.299, 0.587, 0.114))), c.rgb, 1.08); gl_FragColor = c; }' });
 composer.addPass(grade);
 function render() { composer.render(); }
-function resize() { const w = innerWidth, hh = innerHeight; renderer.setSize(w, hh, false); composer.setSize(w, hh); camera.aspect = w / hh; camera.fov = w / hh < .6 ? 68 : 50; camera.updateProjectionMatrix(); }
+function resize() { const w = innerWidth, hh = innerHeight; renderer.setSize(w, hh, false); composer.setSize(w, hh); camera.aspect = w / hh; camera.fov = w / hh < .6 ? 68 : 50; camera.updateProjectionMatrix(); const por = w / hh < .8; if (por !== PORTRAIT || !applyLayout.done) { applyLayout(por); applyLayout.done = true; } }
 addEventListener('resize', resize); resize();
 
 // ================= photo / presentation =================
@@ -928,7 +950,7 @@ document.getElementById('share').onclick = () => { track('crepe_share'); const t
 newCrepe(); g.phase = 'title';
 document.getElementById('loading').remove();
 requestAnimationFrame(frame);
-window.__g = () => g; window.__A = A; window.__api = { asset, update, render, stats, newCrepe, setHeld, finish, cellAt, pour, spread, tryFold, tryFlip, addItem, addStroke, camera, scene, renderer, tools, bagMeshes, bottleMeshes, trayFruits, THREE };
+window.__g = () => g; window.__A = A; window.__api = { CAM, LAYOUT, applyLayout, resize, asset, update, render, stats, newCrepe, setHeld, finish, cellAt, pour, spread, tryFold, tryFlip, addItem, addStroke, camera, scene, renderer, tools, bagMeshes, bottleMeshes, trayFruits, THREE };
 </script>
 </body>
 </html>
