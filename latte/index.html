@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<script src="../ga.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ラテアート屋さん</title>
+<meta name="description" content="エスプレッソを淹れて、ミルクをスチームして、注ぐ。ミルクとクレマが本当に流れて、注ぎ方でハートやロゼッタが生まれるラテアート屋さん。">
+<meta property="og:title" content="ラテアート屋さん">
+<meta property="og:description" content="ミルクとクレマが本当に流れる。注ぎ方で模様が決まるラテアート。">
+<meta property="og:image" content="https://omise.ochinana.jp/latte/og.png">
+<meta property="og:url" content="https://omise.ochinana.jp/latte/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#fbe6ec">
+<style>
+  :root { color-scheme: light; --cream:#fff8f3; --pink:#f6b9c7; --pink2:#fde7ec; --berry:#ef7f9a; --cocoa:#7a4a3a; --ink:#6b5047; --shadow:0 4px 14px rgba(190,120,130,.22); }
+  html, body { margin:0; height:100%; background:#fbe6ec; overflow:hidden; font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Rounded Mplus 1c","Noto Sans JP",-apple-system,sans-serif; font-weight:700; touch-action:none; -webkit-user-select:none; user-select:none; }
+  #gl { position:fixed; inset:0; width:100% !important; height:100% !important; display:block; touch-action:none; }
+  .ui { position:fixed; z-index:3; pointer-events:none; }
+  .ui > * { pointer-events:auto; }
+  #top { top:calc(env(safe-area-inset-top) + 10px); left:10px; right:10px; display:flex; gap:8px; align-items:center; }
+  .pill { display:inline-flex; align-items:center; gap:6px; background:#fff; color:var(--cocoa); font-size:13px; font-weight:900; padding:10px 15px; border-radius:24px; border:0; box-shadow:var(--shadow), inset 0 -3px 0 rgba(120,70,70,.06); white-space:nowrap; cursor:pointer; transition:transform .08s; font-family:inherit; }
+  .pill:active { transform:translateY(2px); }
+  .pill.cta { background:linear-gradient(#f7a3b8, #ec7a97); color:#fff; box-shadow:0 5px 14px rgba(236,122,151,.4), inset 0 -3px 0 rgba(0,0,0,.08); }
+  .pill.off { background:#f7eef0; color:#cdb3b8; box-shadow:none; }
+  .pill svg { width:16px; height:16px; }
+  .spacer { flex:1; }
+  #guide { position:fixed; left:50%; transform:translateX(-50%); top:calc(env(safe-area-inset-top) + 62px); z-index:3; pointer-events:none; display:flex; flex-direction:column; align-items:center; gap:5px; background:#fff; border-radius:22px; padding:9px 18px 8px; box-shadow:var(--shadow); }
+  #guide-t { font-size:14px; font-weight:900; color:var(--cocoa); white-space:nowrap; }
+  #guide .dots { display:flex; gap:5px; }
+  #guide .dots i { width:8px; height:8px; border-radius:50%; background:#f3dfe4; display:block; }
+  #guide .dots i.on { background:var(--berry); }
+  #guide .dots i.done { background:var(--pink); }
+  #status { position:fixed; left:12px; top:calc(env(safe-area-inset-top) + 124px); display:flex; flex-direction:column; gap:6px; z-index:3; pointer-events:none; }
+  #status span { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,.9); color:var(--cocoa); font-size:11px; font-weight:900; padding:5px 10px; border-radius:14px; box-shadow:var(--shadow); width:max-content; }
+  #status svg { width:13px; height:13px; }
+  #staff { position:fixed; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom) + 12px); display:flex; align-items:flex-end; gap:8px; z-index:3; pointer-events:none; }
+  #staff canvas { width:74px; height:74px; flex:none; background:var(--pink2); border:4px solid var(--pink); border-radius:50%; box-shadow:var(--shadow); }
+  #say { position:relative; background:#fff; border-radius:22px; padding:12px 16px; font-size:14px; font-weight:900; line-height:1.5; color:var(--cocoa); box-shadow:var(--shadow); min-height:18px; flex:1; margin-bottom:12px; }
+  #say::after { content:''; position:absolute; left:-9px; bottom:18px; border:8px solid transparent; border-right-color:#fff; }
+  #held { position:fixed; right:10px; bottom:calc(env(safe-area-inset-bottom) + 104px); z-index:3; display:flex; align-items:center; gap:8px; background:#fff; border:3px solid var(--pink); border-radius:18px; padding:6px 12px 6px 6px; box-shadow:var(--shadow); cursor:pointer; font-family:inherit; }
+  #held canvas { width:38px; height:38px; background:var(--pink2); border-radius:12px; }
+  @media (max-aspect-ratio: 4/5) { #held { bottom:auto; top:calc(env(safe-area-inset-top) + 124px); } }
+  #held b { display:block; font-size:12px; color:var(--cocoa); font-weight:900; }
+  #held small { display:block; font-size:10px; color:var(--berry); font-weight:900; }
+  .panel { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:min(86vw,330px); background:#fff; border-radius:30px; padding:20px 18px 18px; box-shadow:0 14px 34px rgba(190,120,130,.28); text-align:center; z-index:9; }
+  .panel h1 { margin:0 0 6px; font-size:24px; color:var(--cocoa); font-weight:900; letter-spacing:.02em; }
+  .panel p { margin:6px 0; font-size:13px; line-height:1.55; color:var(--ink); }
+  .howto { background:var(--pink2); border-radius:16px; padding:9px 12px; text-align:left; font-size:12px; line-height:1.75; color:var(--ink); margin:8px 0; }
+  .howto b { color:var(--berry); }
+  button.big { margin-top:10px; width:100%; border:0; background:linear-gradient(#f7a3b8, #ec7a97); color:#fff; font-size:18px; font-weight:900; padding:14px; border-radius:30px; box-shadow:0 6px 16px rgba(236,122,151,.4), inset 0 -4px 0 rgba(0,0,0,.08); cursor:pointer; font-family:inherit; }
+  button.big:active { transform:translateY(2px); }
+  button.sub { margin-top:8px; border:0; background:#fff; color:var(--cocoa); font-size:13px; font-weight:900; padding:11px 14px; border-radius:22px; cursor:pointer; box-shadow:var(--shadow), inset 0 -3px 0 rgba(120,70,70,.06); font-family:inherit; }
+  .row { display:flex; gap:8px; justify-content:center; }
+  .row button { flex:1; }
+  .hidden { display:none !important; }
+  #result { top:auto; bottom:calc(env(safe-area-inset-bottom) + 14px); transform:translateX(-50%); }
+  #result h1 { font-size:28px; }
+  #result h1::before, #result h1::after { content:'\2726'; color:var(--pink); font-size:16px; margin:0 8px; vertical-align:middle; }
+  #gallery .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:8px 0; max-height:50vh; overflow:auto; }
+  #gallery img { width:100%; border-radius:14px; background:#eee; box-shadow:var(--shadow); }
+  #loading { position:fixed; inset:0; display:grid; place-items:center; background:#fbe6ec; color:var(--cocoa); font-weight:900; z-index:20; }
+  body.og .ui, body.og #guide, body.og #status, body.og #staff, body.og #held, body.og .panel { display:none !important; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="loading">マシンをあたためています…</div>
+<div id="top" class="ui">
+  <button class="pill" id="b-gallery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8 7l1.5-3h5L16 7"/></svg>作品</button>
+  <div class="spacer"></div>
+  <button class="pill" id="b-reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v5h5"/></svg></button>
+  <button class="pill off" id="b-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>できた</button>
+</div>
+<div id="guide"><span id="guide-t">エスプレッソを淹れよう</span><span class="dots"><i id="st0"></i><i id="st1"></i><i id="st2"></i><i id="st3"></i><i id="st4"></i></span></div>
+<div id="status">
+  <span id="s-cup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M16 10h2a2 2 0 0 1 0 4h-2"/></svg><em id="s-cup-t">カップは空</em></span>
+  <span id="s-milk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 5v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8z"/></svg><em id="s-milk-t">ミルクは冷たい</em></span>
+  <span id="s-crema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg><em id="s-crema-t">クレマなし</em></span>
+</div>
+<button id="held" class="hidden"><canvas id="held-ic" width="72" height="72"></canvas><span><b id="held-t"></b><small>タップで手ぶら</small></span></button>
+<div id="staff"><canvas id="cat" width="144" height="144"></canvas><div id="say">…</div></div>
+
+<div id="title" class="panel">
+  <h1>ラテアート屋さん</h1>
+  <p>ミルクとクレマが本当に流れます。<br>注ぎ方で、模様が生まれます。</p>
+  <div class="howto">
+    <b>マシン</b>：ボタンをタップしてエスプレッソを淹れる<br>
+    <b>スチーム</b>：ノズルを長押し。2〜4秒がきめ細かい<br>
+    <b>ピッチャー</b>：カップを押さえると注げる。ゆっくり＝白く太く、速く＝細く<br>
+    <b>ロゼッタ</b>：左右にふりながら引いて、最後にまっすぐ通す<br>
+    <b>ピック</b>：泡の上をなぞって描く　<b>ココア</b>：タップでふりかけ
+  </div>
+  <button class="big" id="start">はじめる</button>
+</div>
+<div id="result" class="panel hidden">
+  <h1>できあがり！</h1>
+  <p id="r-msg"></p>
+  <div class="row"><button class="big" id="again">↻ もうひとつ作る</button></div>
+  <div class="row"><button class="sub" id="save">画像を保存</button><button class="sub" id="share">Xでシェア</button></div>
+</div>
+<div id="gallery" class="panel hidden">
+  <h1>過去の作品</h1>
+  <div class="grid" id="g-grid"></div>
+  <p id="g-empty" class="hidden">まだ作品がありません</p>
+  <button class="sub" id="g-close">とじる</button>
+</div>
+
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ================= fluid simulation (カップの表面) =================
+// N×N の格子。u,v = 表面の流れ (マス/秒)、w = 白さ (ミルクの泡 0..1)。カップの外 (mask=0) は壁。
+// 注ぐ: 白を足して外向きに押す + 指の動きの向きに流す。ピック: 細く強い流れだけ。流れが白と茶色を運んで模様になる。
+const N = 200, NN = N * N, CUP_R = .8; // world: カップ半径 (形は半径 1 で作って CUP_R 倍に縮める) = N/2 マス
+const u = new Float32Array(NN), v = new Float32Array(NN), pu = new Float32Array(NN), pv = new Float32Array(NN), u0 = new Float32Array(NN), v0 = new Float32Array(NN), w = new Float32Array(NN), w0 = new Float32Array(NN), w1 = new Float32Array(NN), pr = new Float32Array(NN), dv = new Float32Array(NN), noise = new Float32Array(NN), mask = new Uint8Array(NN);
+for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const k = j * N + i; const x = (i + .5) / N * 2 - 1, z = (j + .5) / N * 2 - 1; mask[k] = x * x + z * z < .96 ? 1 : 0; noise[k] = Math.random(); }
+const W2C = N / (2 * CUP_R); // world→cells
+function cellOf(x, z) { const i = Math.floor((x / CUP_R + 1) * .5 * N), j = Math.floor((z / CUP_R + 1) * .5 * N); return i < 0 || j < 0 || i >= N || j >= N ? -1 : j * N + i; }
+function advect(dst, src, dt, push) { // push: 注ぎ口の押し出し (発散する流れなので圧力計算の外で白だけを運ぶ)
+  for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (!mask[k]) { dst[k] = src[k]; continue; }
+    let x = i - dt * (u[k] + (push ? pu[k] : 0)), y = j - dt * (v[k] + (push ? pv[k] : 0)); if (x < .5) x = .5; if (x > N - 1.5) x = N - 1.5; if (y < .5) y = .5; if (y > N - 1.5) y = N - 1.5;
+    const i0 = x | 0, j0 = y | 0, s1 = x - i0, t1 = y - j0, s0 = 1 - s1, t0 = 1 - t1; const a = j0 * N + i0;
+    const ka = mask[a] ? src[a] : src[k], kb = mask[a + 1] ? src[a + 1] : src[k], kc = mask[a + N] ? src[a + N] : src[k], kd = mask[a + N + 1] ? src[a + N + 1] : src[k];
+    dst[k] = s0 * (t0 * ka + t1 * kc) + s1 * (t0 * kb + t1 * kd); }
+}
+function project() {
+  for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) { const k = j * N + i; pr[k] = 0; if (!mask[k]) { dv[k] = 0; continue; }
+    const ur = mask[k + 1] ? u[k + 1] : 0, ul = mask[k - 1] ? u[k - 1] : 0, vd = mask[k + N] ? v[k + N] : 0, vu = mask[k - N] ? v[k - N] : 0; dv[k] = -.5 * (ur - ul + vd - vu); }
+  for (let it = 0; it < 14; it++) for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (!mask[k]) continue;
+    const a = mask[k - 1] ? pr[k - 1] : pr[k], b = mask[k + 1] ? pr[k + 1] : pr[k], c = mask[k - N] ? pr[k - N] : pr[k], d = mask[k + N] ? pr[k + N] : pr[k]; pr[k] = (dv[k] + a + b + c + d) * .25; }
+  for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (!mask[k]) continue;
+    const a = mask[k - 1] ? pr[k - 1] : pr[k], b = mask[k + 1] ? pr[k + 1] : pr[k], c = mask[k - N] ? pr[k - N] : pr[k], d = mask[k + N] ? pr[k + N] : pr[k]; u[k] -= .5 * (b - a); v[k] -= .5 * (d - c); }
+}
+function fluidStep(dt) {
+  const dmp = Math.max(0, 1 - dt * 1.8); for (let k = 0; k < NN; k++) { if (!mask[k]) { u[k] = v[k] = 0; } else { u[k] *= dmp; v[k] *= dmp; } }
+  advect(u0, u, dt); advect(v0, v, dt); u.set(u0); v.set(v0); project();
+  advect(w0, w, dt, true); advect(w1, w0, -dt, true); // MacCormack: 往復して誤差を補正 (にじみを抑える)
+  for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (!mask[k]) continue; let c = w0[k] + (w[k] - w1[k]) * .5; const a = w[k - 1], b = w[k + 1], cc = w[k - N], d = w[k + N], e = w[k]; const lo = Math.min(a, b, cc, d, e), hi = Math.max(a, b, cc, d, e); w1[k] = c < lo ? lo : c > hi ? hi : c; }
+  for (let k = 0; k < NN; k++) w[k] = mask[k] ? w1[k] : w0[k]; pu.fill(0); pv.fill(0);
+  if (g.foam === 'coarse') { // 粗い泡はにじむ
+    for (let j = 1; j < N - 1; j += 2) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (mask[k]) w[k] += ((w[k - 1] + w[k + 1] + w[k - N] + w[k + N]) * .25 - w[k]) * dt * 1.2; } }
+}
+function splatVel(x, z, r, fx, fz, radial, dt) { // r は world。fx,fz = 流れ (マス/秒)、radial = 外向きの押し
+  const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C, R2 = rc * rc * 4;
+  const i0 = Math.max(1, Math.floor(ci - rc * 2)), i1 = Math.min(N - 2, Math.ceil(ci + rc * 2)), j0 = Math.max(1, Math.floor(cj - rc * 2)), j1 = Math.min(N - 2, Math.ceil(cj + rc * 2));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d2 = dx * dx + dz * dz; if (d2 > R2) continue; const wgt = Math.exp(-d2 / (rc * rc)); const d = Math.sqrt(d2) + .3;
+    u[k] += fx * wgt * dt; v[k] += fz * wgt * dt; pu[k] += radial * dx / d * wgt; pv[k] += radial * dz / d * wgt; }
+}
+function splatW(x, z, r, amt, dt) { const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C; const i0 = Math.max(1, Math.floor(ci - rc * 2)), i1 = Math.min(N - 2, Math.ceil(ci + rc * 2)), j0 = Math.max(1, Math.floor(cj - rc * 2)), j1 = Math.min(N - 2, Math.ceil(cj + rc * 2));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d2 = dx * dx + dz * dz; const wgt = Math.exp(-d2 / (rc * rc)); if (wgt < .02) continue; w[k] = Math.min(1, Math.max(0, w[k] + amt * wgt * dt)); } }
+// 注ぎ口: ゆっくりなら白が真下にも浮く。速く動かすと真下は下から湧く茶色 (新しい液面) で、白はその周りに輪で出る → ふると葉が分かれる
+function pourSplat(x, z, rc, amt, slow, dt) { const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, r = rc * W2C; const i0 = Math.max(1, Math.floor(ci - r * 2.6)), i1 = Math.min(N - 2, Math.ceil(ci + r * 2.6)), j0 = Math.max(1, Math.floor(cj - r * 2.6)), j1 = Math.min(N - 2, Math.ceil(cj + r * 2.6));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d = Math.sqrt(dx * dx + dz * dz); const core = Math.exp(-d * d / (r * r)), ring = Math.exp(-(d - r * 1.4) * (d - r * 1.4) / (r * r * .7));
+    const add = amt * (ring + core * slow) * dt; const fresh = (1 - slow) * 70 * Math.exp(-d * d / (r * r * .6)) * dt; w[k] = Math.min(1, Math.max(0, w[k] + add - w[k] * fresh)); } }
+function stats() {
+  let n = 0, white = 0, edge = 0; for (let j = 1; j < N - 1; j++) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (!mask[k]) continue; n++; white += w[k]; if (mask[k + 1]) edge += Math.abs(w[k + 1] - w[k]); if (mask[k + N]) edge += Math.abs(w[k + N] - w[k]); }
+  return { white: white / n, edge: edge / n, fill: g.fill, foam: g.foam, cremaAge: g.cremaAge, spill: g.spill, cocoa: g.cocoa };
+}
+
+// ================= game state =================
+let g;
+function newLatte() {
+  u.fill(0); v.fill(0); w.fill(0);
+  g = { phase: 'make', t: 0, fill: 0, brewing: 0, crema: 0, cremaAge: 0, steamT: 0, foam: null, steaming: false, tool: null, pointer: null, down: false, lastP: null, speed: 0, spill: 0, cocoa: 0, msgT: 0, msgCool: 0, photo: null, poured: 0 };
+  resetPresentation(); setHeld(null); say('まずマシンのボタンをタップして、エスプレッソを淹れてね');
+  document.getElementById('b-done').classList.add('off');
+}
+function say(t, mood = 'normal') { document.getElementById('say').textContent = t; g.msgT = 0; drawCat(mood); }
+function simulate(dt) {
+  if (g.brewing > 0) { g.brewing -= dt; g.fill = Math.min(.42, g.fill + dt * .14); if (g.brewing <= 0) { g.crema = 1; g.cremaAge = 0; say('クレマができた。次はミルクをスチーム。ノズルを長押しだよ'); } }
+  if (g.crema > 0) g.cremaAge += dt;
+  if (g.steaming) { g.steamT += dt; if (Math.random() < .3) sfx.hiss(); }
+  const pouring = g.tool === 'pitcher' && g.down && g.pointer && g.fill >= .4 && g.foam && Math.hypot(g.pointer.x, g.pointer.z) < CUP_R * .98;
+  if (pouring) {
+    const p = g.pointer; const lp = g.lastP || p; const vx = (p.x - lp.x) / Math.max(dt, 1e-3), vz = (p.z - lp.z) / Math.max(dt, 1e-3); g.speed += (Math.hypot(vx, vz) - g.speed) * .3; g.lastP = p;
+    g.fill = Math.min(1.08, g.fill + dt * .12); g.poured += dt;
+    const strength = g.foam === 'thin' ? .55 : g.foam === 'coarse' ? .8 : 1;
+    const slow = Math.max(0, 1 - g.speed / 1.6); // ゆっくりだと白が浮く、速いと細い
+    const sub = Math.max(1, Math.min(8, Math.ceil(Math.hypot(p.x - lp.x, p.z - lp.z) * W2C / 1.5))); // 動いた区間を 1.5 マスごとに分けて注ぐ (点線にならない)
+    for (let q = 1; q <= sub; q++) { const f = q / sub, x = lp.x + (p.x - lp.x) * f, z = lp.z + (p.z - lp.z) * f;
+      if (g.fill > .55) pourSplat(x, z, .02 + .035 * slow, (4 + 10 * slow) * strength, slow, dt / sub); else splatW(x, z, .08, .3, dt / sub);
+      splatVel(x, z, .05, vx * W2C * .1, vz * W2C * .1, 14 + 12 * slow, dt / sub); }
+    if (g.fill > 1.0) { g.spill += dt; if (g.msgCool <= 0) { say('あふれた！そこまでで止めよう', 'oops'); g.msgCool = 3; } }
+    if (Math.random() < .3) sfx.pour();
+  } else g.lastP = null;
+  if (g.tool === 'pick' && g.down && g.pointer && g.fill >= .55) { const p = g.pointer, lp = g.lastP || p; const vx = (p.x - lp.x) / Math.max(dt, 1e-3), vz = (p.z - lp.z) / Math.max(dt, 1e-3); splatVel(p.x, p.z, .028, vx * W2C * .5, vz * W2C * .5, 0, dt); g.lastP = p; }
+  if (g.fill > .3) fluidStep(dt);
+}
+
+// ================= audio =================
+let AC = null;
+function ensureAudio() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); }
+function tone(f, d, type = 'sine', vol = .06, slide = 0) { if (!AC) return; const o = AC.createOscillator(), gn = AC.createGain(); o.type = type; o.frequency.value = f; if (slide) o.frequency.linearRampToValueAtTime(f + slide, AC.currentTime + d); gn.gain.value = vol; gn.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.connect(gn); gn.connect(AC.destination); o.start(); o.stop(AC.currentTime + d); }
+function noiseBurst(d, vol = .03) { if (!AC) return; const n = AC.sampleRate * d, b = AC.createBuffer(1, n, AC.sampleRate), dd = b.getChannelData(0); for (let i = 0; i < n; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / n); const s = AC.createBufferSource(); s.buffer = b; const gn = AC.createGain(); gn.gain.value = vol; s.connect(gn); gn.connect(AC.destination); s.start(); }
+const sfx = { tap: () => tone(520, .08, 'triangle', .05), hiss: () => noiseBurst(.15, .02), pour: () => noiseBurst(.1, .012), brew: () => noiseBurst(.3, .02), done: () => { tone(660, .12); setTimeout(() => tone(880, .12), 100); setTimeout(() => tone(1100, .3), 200); } };
+
+// ================= assets =================
+const A = await new Promise(res => { new GLTFLoader().load('../crepe/assets.glb?v=6', gltf => { const lib = {}; gltf.scene.children.slice().forEach(ch => { lib[ch.name] = ch; }); res(lib); }, undefined, err => { console.warn('assets.glb failed', err); res(null); }); });
+function asset(name) { const src = A && A[name]; if (!src) return null; const c = new THREE.Group(); c.add(src.clone()); c.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return c; }
+
+// ================= three.js scene =================
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .92;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#fbe6ec'); scene.fog = new THREE.Fog('#fbe6ec', 7.5, 13);
+const pmrem = new THREE.PMREMGenerator(renderer); scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .04).texture; scene.environmentIntensity = .6;
+const camera = new THREE.PerspectiveCamera(50, 1, .1, 50);
+const CAM = { make: { pos: new THREE.Vector3(.26, 4.2, 3.4), look: new THREE.Vector3(.26, .05, .3) }, photo: { pos: new THREE.Vector3(0, 1.9, 2.3), look: new THREE.Vector3(0, .15, .25) } };
+camera.position.copy(CAM.make.pos); camera.lookAt(CAM.make.look);
+const camState = { pos: CAM.make.pos.clone(), look: CAM.make.look.clone() };
+const hemi = new THREE.HemisphereLight('#fff6f8', '#e8cbb8', .55); scene.add(hemi);
+const rimL = new THREE.DirectionalLight('#ffc9d6', .9); rimL.position.set(-3, 3, -4); scene.add(rimL);
+const sun = new THREE.DirectionalLight('#fff4ea', 1.6); sun.position.set(1.5, 6, 4); sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024); sun.shadow.camera.left = -3; sun.shadow.camera.right = 3; sun.shadow.camera.top = 3; sun.shadow.camera.bottom = -3; sun.shadow.camera.near = 1; sun.shadow.camera.far = 14; sun.shadow.bias = -.0006; sun.shadow.radius = 10;
+scene.add(sun);
+const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: .85, metalness: 0 }, o));
+const P = (color, o = {}) => new THREE.MeshPhysicalMaterial(Object.assign({ color, roughness: .5, metalness: 0, clearcoat: .6, clearcoatRoughness: .3 }, o));
+const mats = { cream: P('#fff4e8', { roughness: .62, clearcoat: .35 }), white: P('#fdfbf8', { roughness: .4, clearcoat: .6 }), pink: M('#f6b9c7'), pinkSoft: M('#f9d4dd'), mint: M('#cfe8d8'), wood: M('#e4b98c'), steel: M('#d8dbe0', { roughness: .3, metalness: .85 }), steelDark: M('#9aa0a8', { roughness: .4, metalness: .8 }), knob: P('#ef8fa5', { roughness: .4 }), dark: M('#4a3a34'), tile: null };
+function mesh(geo, m, x, y, z, parent = scene, shadow = true) { const b = new THREE.Mesh(geo, m); b.position.set(x, y, z); b.castShadow = shadow; b.receiveShadow = true; parent.add(b); return b; }
+function cyl(rt, rb, hh, m, x, y, z, parent = scene, seg = 48) { return mesh(new THREE.CylinderGeometry(rt, rb, hh, seg), m, x, y, z, parent); }
+function sph(r, m, x, y, z, parent = scene, sx = 1, sy = 1, sz = 1) { const b = mesh(new THREE.SphereGeometry(r, 28, 20), m, x, y, z, parent); b.scale.set(sx, sy, sz); return b; }
+function roundedBoxGeo(w, hh, d, r) { const sh = new THREE.Shape(); const x = -w / 2, y = -d / 2; sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r); sh.lineTo(x + w, y + d - r); sh.quadraticCurveTo(x + w, y + d, x + w - r, y + d); sh.lineTo(x + r, y + d); sh.quadraticCurveTo(x, y + d, x, y + d - r); sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y); const geo = new THREE.ExtrudeGeometry(sh, { depth: Math.max(.01, hh - .03), bevelEnabled: true, bevelThickness: .015, bevelSize: .015, bevelSegments: 3, curveSegments: 8 }); geo.rotateX(-Math.PI / 2); geo.translate(0, .015, 0); return geo; }
+function rbox(w, hh, d, r, m, x, y, z, parent = scene) { return mesh(roundedBoxGeo(w, hh, d, r), m, x, y, z, parent); }
+
+// ---------- room ----------
+const contactTex = (() => { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 128; const x2 = cv2.getContext('2d'); const gr = x2.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(90,50,40,.45)'); gr.addColorStop(.55, 'rgba(90,50,40,.18)'); gr.addColorStop(1, 'rgba(90,50,40,0)'); x2.fillStyle = gr; x2.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(cv2); })();
+function contact(x, z, rx, rz, y = -.265, parent = scene) { const m = new THREE.Mesh(new THREE.PlaneGeometry(rx * 2, rz * 2), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.renderOrder = 1; parent.add(m); return m; }
+contact(0, 0, 1.5, 1.5, -.262);
+mesh(new THREE.BoxGeometry(7, .14, 4.6), mats.wood, 0, -.34, .4, scene, false).receiveShadow = true;
+(function () { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 256; const x2 = cv2.getContext('2d'); x2.fillStyle = '#f4dfe4'; x2.fillRect(0, 0, 256, 256); x2.fillStyle = '#fff7f4'; for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) { x2.beginPath(); x2.roundRect(i * 128 + 5, j * 128 + 5, 118, 118, 10); x2.fill(); } const t = new THREE.CanvasTexture(cv2); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 4); mats.tile = M('#ffffff', { map: t, roughness: .7 }); })();
+mesh(new THREE.BoxGeometry(7, 3.2, .1), mats.tile, 0, 1.2, -2.05, scene, false);
+(function () { const cv2 = document.createElement('canvas'); cv2.width = 512; cv2.height = 64; const x2 = cv2.getContext('2d'); for (let i = 0; i < 8; i++) { x2.fillStyle = i % 2 ? '#fff8f2' : '#d9c3a8'; x2.fillRect(i * 64, 0, 64, 64); } const t = new THREE.CanvasTexture(cv2); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.set(2, 1); const aw = mesh(new THREE.BoxGeometry(7, .08, .9), M('#ffffff', { map: t }), 0, 2.45, -1.6, scene, false); aw.rotation.x = .35; for (let i = -13; i <= 13; i++) { const sc = sph(.13, i % 2 ? mats.cream : M('#d9c3a8'), i * .25, 2.27, -1.18, scene, 1, .8, .6); sc.castShadow = false; } })();
+if (A) { const sg = asset('sign'); sg.position.set(-1.6, 1.15, -1.98); scene.add(sg); const pl = asset('plant'); pl.position.set(-2.4, .975, -1.8); scene.add(pl); }
+mesh(new THREE.BoxGeometry(.9, .05, .4), mats.wood, -2.4, .95, -1.8, scene, false);
+const cat3d = asset('cat') || new THREE.Group(); scene.add(cat3d); cat3d.position.set(-1.2, -.05, -1.4); cat3d.scale.setScalar(.85); cat3d.rotation.y = .5;
+
+// ---------- espresso machine (奥) + steam wand ----------
+const machine = new THREE.Group(); scene.add(machine); machine.position.set(.9, -.27, -1.35);
+rbox(1.5, .95, .8, .12, mats.cream, 0, 0, 0, machine);                                   // body
+rbox(1.3, .12, .5, .06, mats.steelDark, 0, .98, -.05, machine);                           // top plate
+mesh(new THREE.BoxGeometry(1.5, .06, .9), mats.pink, 0, .95, .0, machine);                // pink lid edge
+rbox(1.2, .1, .55, .05, mats.steel, 0, .05, .45, machine);                                // drip tray
+cyl(.07, .07, .12, mats.steelDark, -.15, .42, .45, machine).rotation.x = Math.PI / 2;     // group head
+const portafilter = new THREE.Group(); machine.add(portafilter); portafilter.position.set(-.15, .36, .5); cyl(.11, .11, .05, mats.steelDark, 0, 0, 0, portafilter); cyl(.02, .02, .3, mats.dark, .18, 0, 0, portafilter).rotation.z = Math.PI / 2;
+const spout = cyl(.02, .02, .08, mats.steelDark, -.15, .28, .5, machine);                 // espresso spout
+const brewBtn = mesh(new THREE.SphereGeometry(.09, 24, 16), mats.knob, .45, .62, .42, machine); brewBtn.scale.set(1, .7, .6);
+mesh(new THREE.SphereGeometry(.05, 16, 12), M('#ffb060', { emissive: '#ff8a3a', emissiveIntensity: .5 }), .45, .78, .42, machine);
+const wand = new THREE.Group(); machine.add(wand); wand.position.set(.95, .5, .2); const wandArm = cyl(.022, .022, .5, mats.steel, 0, -.22, 0, wand); wandArm.rotation.z = .35; cyl(.03, .02, .06, mats.steelDark, -.09, -.46, 0, wand);
+const steamJet = new THREE.Mesh(new THREE.ConeGeometry(.09, .3, 16, 1, true), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .35, depthWrite: false })); steamJet.position.set(-.09, -.62, 0); steamJet.rotation.x = Math.PI; steamJet.visible = false; wand.add(steamJet);
+const espressoStream = cyl(.018, .018, .6, M('#4a2a18'), -.15, 0, .5, machine); espressoStream.visible = false; espressoStream.castShadow = false;
+
+// ---------- cup + saucer + liquid surface ----------
+const cupG = new THREE.Group(); scene.add(cupG); cupG.scale.setScalar(CUP_R);
+const saucer = mesh(new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(1.2, 0), new THREE.Vector2(1.45, .05), new THREE.Vector2(1.5, .1), new THREE.Vector2(1.45, .12), new THREE.Vector2(1.1, .07), new THREE.Vector2(0, .07)], 64), mats.white, 0, -.27, 0, cupG);
+const cupPts = []; for (let i = 0; i <= 12; i++) { const t = i / 12; cupPts.push(new THREE.Vector2(.72 + .3 * Math.pow(t, .6) + .02 * Math.sin(t * 3), -.2 + t * .62)); } cupPts.push(new THREE.Vector2(1.06, .42), new THREE.Vector2(1.04, .44), new THREE.Vector2(1.0, .42)); for (let i = 12; i >= 0; i--) { const t = i / 12; cupPts.push(new THREE.Vector2(.68 + .3 * Math.pow(t, .6), -.17 + t * .59)); } cupPts.push(new THREE.Vector2(0, -.17));
+const cupBody = mesh(new THREE.LatheGeometry([new THREE.Vector2(0, -.2), ...cupPts], 72), mats.cream, 0, 0, 0, cupG); cupBody.material = mats.cream.clone(); cupBody.material.side = THREE.DoubleSide;
+const handle = mesh(new THREE.TorusGeometry(.2, .05, 14, 32, Math.PI * 1.3), mats.cream, 1.05, .12, 0, cupG); handle.rotation.set(0, 0, -.35); handle.rotation.y = Math.PI / 2;
+mesh(new THREE.TorusGeometry(1.02, .03, 12, 72), mats.pink, 0, .42, 0, cupG).rotation.x = Math.PI / 2; // pink rim
+// 表面: 流体の見た目 (キャンバス → テクスチャ)
+const surfCv = document.createElement('canvas'); surfCv.width = surfCv.height = N; const surfX = surfCv.getContext('2d'); const surfImg = surfX.createImageData(N, N);
+const surfTex = new THREE.CanvasTexture(surfCv); surfTex.colorSpace = THREE.SRGBColorSpace; surfTex.minFilter = THREE.LinearFilter; surfTex.magFilter = THREE.LinearFilter;
+const bumpCv = document.createElement('canvas'); bumpCv.width = bumpCv.height = N; const bumpX = bumpCv.getContext('2d'); const bumpImg = bumpX.createImageData(N, N); const bumpTex = new THREE.CanvasTexture(bumpCv);
+const surfMat = new THREE.MeshPhysicalMaterial({ map: surfTex, bumpMap: bumpTex, bumpScale: .02, roughness: .3, clearcoat: .5, clearcoatRoughness: .2, envMapIntensity: .7 });
+const surface = mesh(new THREE.CircleGeometry(.985, 72), surfMat, 0, -.1, 0, cupG, false); surface.rotation.x = -Math.PI / 2; surface.visible = false;
+const CREMA_FRESH = new THREE.Color('#a87a52'), CREMA_OLD = new THREE.Color('#76573f'), MILK = new THREE.Color('#fff9f0');
+function updateSurface() {
+  surface.visible = g.fill > .05; if (!surface.visible) return; surface.position.y = -.17 + .57 * Math.min(1, g.fill);
+  const fresh = Math.max(0, 1 - g.cremaAge / 90); const crema = CREMA_FRESH.clone().lerp(CREMA_OLD, 1 - fresh); const d = surfImg.data, b = bumpImg.data; const coarse = g.foam === 'coarse' ? 1 : 0;
+  for (let k = 0; k < NN; k++) { let ww = w[k]; { const t = Math.min(1, Math.max(0, (ww - .25) / .5)); ww = t * t * (3 - 2 * t); } if (coarse) ww *= 1 - .35 * (noise[k] > .6 ? 1 : 0); const r = crema.r + (MILK.r - crema.r) * ww, gg = crema.g + (MILK.g - crema.g) * ww, bb = crema.b + (MILK.b - crema.b) * ww; const o = k * 4; const shade = 1 - .08 * noise[k] * (1 - ww) * fresh; d[o] = r * 255 * shade; d[o + 1] = gg * 255 * shade; d[o + 2] = bb * 255 * shade; d[o + 3] = 255; const hgt = 128 + ww * 60 + (coarse ? (noise[k] - .5) * 60 * ww : 0); b[o] = b[o + 1] = b[o + 2] = hgt; b[o + 3] = 255; }
+  surfX.putImageData(surfImg, 0, 0); surfTex.needsUpdate = true; bumpX.putImageData(bumpImg, 0, 0); bumpTex.needsUpdate = true;
+}
+const spillMesh = mesh(new THREE.CircleGeometry(1.3, 48), new THREE.MeshStandardMaterial({ color: '#fff5ea', roughness: .25, transparent: true, opacity: .9 }), 0, -.195, .2, cupG, false); spillMesh.rotation.x = -Math.PI / 2; spillMesh.visible = false;
+
+// ---------- tools ----------
+const pickables = []; const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+function makePick(mesh, info, r = .17) { const hit = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), hitMat); hit.position.y = .05; mesh.add(hit); mesh.traverse(o => { o.userData.pick = info; }); pickables.push(mesh); mesh.userData.info = info; return mesh; }
+makePick(brewBtn, { kind: 'act', id: 'brew', name: '淹れる' }, .2); makePick(wand, { kind: 'act', id: 'steam', name: 'スチーム' }, .3);
+const rackTray = asset('tray') || rbox(.54, .07, 2.0, .1, mats.wood, 0, 0, 0); scene.add(rackTray);
+function makePitcher() { const gp = new THREE.Group(); const body = mesh(new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(.14, 0), new THREE.Vector2(.17, .12), new THREE.Vector2(.15, .28), new THREE.Vector2(.14, .3), new THREE.Vector2(.12, .3), new THREE.Vector2(.13, .02), new THREE.Vector2(0, .02)], 40), mats.steel, 0, 0, 0, gp); body.material = mats.steel.clone(); body.material.side = THREE.DoubleSide; const sp = mesh(new THREE.ConeGeometry(.05, .1, 12), mats.steel, 0, .3, .14, gp); sp.rotation.x = -1.2; const h = mesh(new THREE.TorusGeometry(.08, .018, 10, 24, Math.PI), mats.steel, 0, .17, -.16, gp); h.rotation.y = Math.PI / 2; h.rotation.z = -Math.PI / 2; cyl(.11, .11, .01, M('#fffaf2', { roughness: .4 }), 0, .27, 0, gp); return gp; }
+function makeStickPick() { const gp = new THREE.Group(); const s = cyl(.016, .006, .6, mats.steel, 0, .3, 0, gp); cyl(.035, .035, .16, mats.knob, 0, .08, 0, gp); sph(.04, mats.knob, 0, 0, 0, gp); return gp; }
+function makeShaker() { const gp = new THREE.Group(); cyl(.1, .1, .22, mats.white, 0, .11, 0, gp); cyl(.1, .1, .06, mats.pink, 0, .25, 0, gp); for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; cyl(.008, .008, .02, mats.dark, Math.cos(a) * .05 * (i ? 1 : 0), .28, Math.sin(a) * .05 * (i ? 1 : 0), gp); } return gp; }
+const pitcherRack = makePick(makePitcher(), { kind: 'tool', id: 'pitcher', name: 'ピッチャー' }, .26); scene.add(pitcherRack);
+const pickRack = makePick(makeStickPick(), { kind: 'tool', id: 'pick', name: 'ピック' }, .22); pickRack.rotation.z = Math.PI / 2; scene.add(pickRack);
+const shakerRack = makePick(makeShaker(), { kind: 'tool', id: 'cocoa', name: 'ココア' }, .24); scene.add(shakerRack);
+const selRing = new THREE.Mesh(new THREE.RingGeometry(.17, .22, 40), new THREE.MeshBasicMaterial({ color: '#ef8fa5', transparent: true, opacity: .9, side: THREE.DoubleSide })); selRing.rotation.x = -Math.PI / 2; selRing.visible = false; scene.add(selRing);
+const heldGroup = new THREE.Group(); scene.add(heldGroup); let heldMesh = null;
+const milkStream = new THREE.Mesh(new THREE.CylinderGeometry(.014, .02, 1, 10, 1, true), new THREE.MeshStandardMaterial({ color: '#fffaf2', roughness: .3 })); milkStream.visible = false; scene.add(milkStream);
+const steamPitcher = makePitcher(); steamPitcher.visible = false; scene.add(steamPitcher);
+// cocoa specks
+function cocoaAt(x, z) { for (let n = 0; n < 60; n++) { const a = Math.random() * 6.28, r = Math.random() * .22; const k = cellOf(x + Math.cos(a) * r, z + Math.sin(a) * r); if (k >= 0 && mask[k]) { w[k] = Math.max(0, w[k] - .5 - Math.random() * .5); } } g.cocoa++; }
+
+// ---------- layout ----------
+const LAYOUT = {
+  land: { cam: { pos: [.26, 4.2, 3.4], look: [.26, .05, .3] }, tray: [1.5, -.27, .4, 0], pitcher: [1.5, -.27, -.2, 0], pick: [1.5, -.2, .35, 0], cocoa: [1.5, -.27, .85, 0], machine: [.9, -.27, -1.35, 1] },
+  port: { cam: { pos: [0, 3.65, 1.75], look: [0, .05, .7] }, tray: [0, -.27, 1.35, Math.PI / 2], pitcher: [-.6, -.27, 1.35, 0], pick: [.12, -.2, 1.35, 0], cocoa: [.7, -.27, 1.35, 0], machine: [.45, -.27, -1.15, .8] },
+};
+let PORTRAIT = false;
+function applyLayout(portrait) {
+  PORTRAIT = portrait; const L = portrait ? LAYOUT.port : LAYOUT.land;
+  const put = (o, a) => { o.position.set(a[0], a[1], a[2]); if (a.length > 3) o.rotation.y = a[3]; };
+  put(rackTray, L.tray); put(pitcherRack, L.pitcher); pickRack.position.set(L.pick[0], L.pick[1], L.pick[2]); pickRack.rotation.set(0, 0, Math.PI / 2); put(shakerRack, L.cocoa); machine.position.set(L.machine[0], L.machine[1], L.machine[2]); machine.scale.setScalar(L.machine[3]);
+  CAM.make.pos.fromArray(L.cam.pos); CAM.make.look.fromArray(L.cam.look);
+  if (g && g.phase === 'make') { camState.pos.copy(CAM.make.pos); camState.look.copy(CAM.make.look); }
+  cat3d.visible = !portrait;
+  if (g && g.tool) placeSel();
+}
+
+// ================= input =================
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.3);
+function toNdc(e) { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function worldAt(e) { toNdc(e); const p = new THREE.Vector3(); return ray.ray.intersectPlane(plane, p) ? p : null; }
+function pickAt(e) { toNdc(e); scene.updateMatrixWorld(); const h = ray.intersectObjects(pickables, true).find(h => h.object.isMesh); return h ? h.object.userData.pick : null; }
+function placeSel() { const src = pickables.find(m => m.userData.info && m.userData.info.id === g.tool); selRing.visible = !!src; if (src) selRing.position.set(src.position.x, -.22, src.position.z); }
+function setHeld(info) {
+  g.tool = info ? info.id : null;
+  if (heldMesh) { heldGroup.remove(heldMesh); heldMesh = null; }
+  pitcherRack.visible = g.tool !== 'pitcher'; pickRack.visible = g.tool !== 'pick'; shakerRack.visible = g.tool !== 'cocoa';
+  if (g.tool === 'pitcher') heldMesh = makePitcher(); else if (g.tool === 'pick') heldMesh = makeStickPick(); else if (g.tool === 'cocoa') heldMesh = makeShaker();
+  if (heldMesh) { heldGroup.add(heldMesh); heldGroup.visible = false; }
+  const held = document.getElementById('held'); held.classList.toggle('hidden', !info); document.getElementById('held-t').textContent = info ? info.name : '';
+  if (info) drawIcon2D(document.getElementById('held-ic').getContext('2d'), info, 72);
+  selRing.visible = !!info; if (info) placeSel();
+}
+canvas.addEventListener('pointerdown', e => {
+  ensureAudio(); if (!g || g.phase !== 'make') return; try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  const pk = pickAt(e);
+  if (pk) {
+    if (pk.id === 'brew') { if (g.brewing > 0) return; if (g.crema > 0) { say('もう淹れてあるよ。クレマは時間がたつと薄くなるから早めにね'); return; } g.brewing = 3; sfx.brew(); say('エスプレッソを抽出中…'); return; }
+    if (pk.id === 'steam') { g.steaming = true; g.down = true; steamPitcher.visible = true; steamJet.visible = true; say('スチーム中。2〜4秒でやめるときめ細かい泡になるよ'); return; }
+    if (g.tool === pk.id) { setHeld(null); say('手ぶら'); } else { setHeld(pk); sfx.tap(); say(pk.id === 'pitcher' ? (g.foam ? 'カップを押さえて注いでね。ゆっくり動かすと白く太く、速いと細く' : '先にミルクをスチームしてね') : pk.id === 'pick' ? '泡の上をなぞって描いてね' : 'カップの上でタップするとココアがかかるよ'); }
+    return;
+  }
+  const p = worldAt(e); if (!p) return; const inCup = Math.hypot(p.x, p.z) < CUP_R * 1.35; if (!inCup) return;
+  g.pointer = p; g.down = true; g.lastP = null; g.speed = 0;
+  if (g.tool === null) say(g.crema <= 0 ? 'まずマシンのボタンでエスプレッソを淹れてね' : !g.foam ? 'ノズルを長押ししてミルクをスチームしてね' : 'ピッチャーを持って注いでね');
+  else if (g.tool === 'pitcher' && g.fill < .4) say('先にエスプレッソを淹れてね');
+  else if (g.tool === 'pitcher' && !g.foam) say('先にミルクをスチームしてね');
+  else if (g.tool === 'cocoa') { if (g.fill >= .55) { cocoaAt(p.x, p.z); sfx.tap(); } else say('注いでからね'); }
+});
+canvas.addEventListener('pointermove', e => { if (!g || !g.down || g.steaming) return; const p = worldAt(e); if (p) g.pointer = p; });
+function release() { if (!g) return; if (g.steaming) { g.steaming = false; steamPitcher.visible = false; steamJet.visible = false; g.foam = g.steamT < 1.5 ? 'thin' : g.steamT <= 4.2 ? 'fine' : 'coarse'; say(g.foam === 'fine' ? 'きめ細かい泡。ピッチャーを持って注ごう' : g.foam === 'thin' ? 'ちょっと短め。泡が少ないから白が薄くなるよ (もう一度長押しで足せる)' : 'スチームしすぎ。泡が粗くてにじみやすいよ', g.foam === 'fine' ? 'happy' : 'oops'); } g.down = false; g.pointer = null; g.lastP = null; }
+canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
+
+// ================= 2D icons / cat =================
+function drawIcon2D(x2, info, S) {
+  x2.clearRect(0, 0, S, S); x2.save(); x2.translate(S / 2, S / 2); x2.scale(S / 72, S / 72); x2.lineCap = 'round'; x2.lineJoin = 'round'; x2.strokeStyle = '#6b3f2a'; x2.lineWidth = 2.5;
+  if (info.id === 'pitcher') { x2.fillStyle = '#d9dde3'; x2.beginPath(); x2.moveTo(-16, -18); x2.lineTo(14, -18); x2.lineTo(18, 22); x2.lineTo(-12, 22); x2.closePath(); x2.fill(); x2.stroke(); x2.beginPath(); x2.moveTo(-16, -18); x2.lineTo(-24, -24); x2.stroke(); x2.beginPath(); x2.arc(20, 0, 8, -1.2, 1.2); x2.stroke(); }
+  else if (info.id === 'pick') { x2.strokeStyle = '#9ba0a8'; x2.lineWidth = 5; x2.beginPath(); x2.moveTo(-18, 18); x2.lineTo(18, -18); x2.stroke(); x2.strokeStyle = '#6b3f2a'; x2.lineWidth = 2.5; x2.beginPath(); x2.moveTo(-18, 18); x2.lineTo(18, -18); x2.stroke(); x2.fillStyle = '#ef8fa5'; x2.beginPath(); x2.arc(-16, 16, 6, 0, 7); x2.fill(); x2.stroke(); }
+  else { x2.fillStyle = '#fff'; x2.beginPath(); x2.roundRect(-14, -8, 28, 32, 6); x2.fill(); x2.stroke(); x2.fillStyle = '#f6b9c7'; x2.beginPath(); x2.roundRect(-14, -20, 28, 12, 5); x2.fill(); x2.stroke(); x2.fillStyle = '#6b3f2a'; [[-6, -14], [0, -14], [6, -14]].forEach(([x, y]) => { x2.beginPath(); x2.arc(x, y, 1.6, 0, 7); x2.fill(); }); }
+  x2.restore();
+}
+function heart2D(x2, x, y, s) { x2.beginPath(); x2.moveTo(x, y + s); x2.bezierCurveTo(x - s * 1.6, y - s * .2, x - s * .6, y - s * 1.4, x, y - s * .5); x2.bezierCurveTo(x + s * .6, y - s * 1.4, x + s * 1.6, y - s * .2, x, y + s); x2.fill(); }
+function drawCatArt(x2, S, mood) {
+  x2.save(); x2.translate(S / 2, S / 2); x2.scale(S / 98, S / 98); x2.translate(-48, -40);
+  const x = 48, y = 46;
+  x2.fillStyle = '#f5e1c4'; x2.beginPath(); x2.ellipse(x, y + 34, 22, 20, 0, 0, 7); x2.fill();
+  x2.fillStyle = '#8a5a3a'; x2.beginPath(); x2.ellipse(x, y + 38, 17, 14, 0, 0, 7); x2.fill();
+  x2.fillStyle = '#fff'; x2.beginPath(); x2.ellipse(x, y + 38, 12, 9, 0, 0, 7); x2.fill(); x2.fillStyle = '#8a5a3a'; heart2D(x2, x, y + 38, 3);
+  x2.fillStyle = '#f5e1c4'; x2.beginPath(); x2.ellipse(x, y, 20, 18, 0, 0, 7); x2.fill();
+  x2.beginPath(); x2.moveTo(x - 18, y - 8); x2.lineTo(x - 14, y - 26); x2.lineTo(x - 4, y - 16); x2.closePath(); x2.moveTo(x + 18, y - 8); x2.lineTo(x + 14, y - 26); x2.lineTo(x + 4, y - 16); x2.closePath(); x2.fill();
+  x2.fillStyle = '#e8b48a'; x2.beginPath(); x2.moveTo(x - 14, y - 10); x2.lineTo(x - 12, y - 20); x2.lineTo(x - 7, y - 14); x2.closePath(); x2.moveTo(x + 14, y - 10); x2.lineTo(x + 12, y - 20); x2.lineTo(x + 7, y - 14); x2.closePath(); x2.fill();
+  x2.fillStyle = 'rgba(240,120,130,.35)'; x2.beginPath(); x2.arc(x - 12, y + 4, 3.5, 0, 7); x2.arc(x + 12, y + 4, 3.5, 0, 7); x2.fill();
+  x2.fillStyle = '#3b2e26'; x2.strokeStyle = '#3b2e26'; x2.lineWidth = 2; x2.lineCap = 'round';
+  if (mood === 'happy') { x2.beginPath(); x2.arc(x - 7, y - 1, 3, Math.PI, 0); x2.stroke(); x2.beginPath(); x2.arc(x + 7, y - 1, 3, Math.PI, 0); x2.stroke(); }
+  else if (mood === 'oops') { x2.beginPath(); x2.ellipse(x - 7, y - 1, 2.6, 3.2, 0, 0, 7); x2.ellipse(x + 7, y - 1, 2.6, 3.2, 0, 0, 7); x2.fill(); x2.fillStyle = '#7fb6ea'; x2.beginPath(); x2.ellipse(x + 13, y + 2, 1.6, 3, 0, 0, 7); x2.fill(); x2.fillStyle = '#3b2e26'; }
+  else { x2.beginPath(); x2.ellipse(x - 7, y - 1, 2.4, 3, 0, 0, 7); x2.ellipse(x + 7, y - 1, 2.4, 3, 0, 0, 7); x2.fill(); x2.fillStyle = '#fff'; x2.beginPath(); x2.arc(x - 8, y - 2.2, .9, 0, 7); x2.arc(x + 6, y - 2.2, .9, 0, 7); x2.fill(); x2.fillStyle = '#3b2e26'; }
+  x2.lineWidth = 1.5; x2.beginPath(); x2.moveTo(x - 2, y + 5); x2.quadraticCurveTo(x, y + 7, x + 2, y + 5); x2.stroke();
+  // barista cap (beret)
+  x2.fillStyle = '#8a5a3a'; x2.beginPath(); x2.ellipse(x + 2, y - 22, 16, 7, -.15, 0, 7); x2.fill(); x2.beginPath(); x2.arc(x + 12, y - 27, 3, 0, 7); x2.fill();
+  x2.restore();
+}
+const catCv = document.getElementById('cat'), cx2 = catCv.getContext('2d');
+function drawCat(mood) { cx2.clearRect(0, 0, 144, 144); drawCatArt(cx2, 144, mood); }
+
+// ================= update / render =================
+let last = performance.now();
+function frame(now) { const dt = Math.min(.04, (now - last) / 1000); last = now; if (g) update(dt); render(); requestAnimationFrame(frame); }
+function update(dt) {
+  g.t += dt; g.msgT += dt; g.msgCool -= dt;
+  if (g.phase === 'make') {
+    simulate(dt); updateSurface();
+    // machine animation
+    espressoStream.visible = g.brewing > 0; if (g.brewing > 0) { espressoStream.position.y = .02; espressoStream.scale.y = .9; }
+    if (g.steaming) { steamPitcher.visible = true; const wp = new THREE.Vector3(); wand.getWorldPosition(wp); steamPitcher.position.set(wp.x - .1, -.27, wp.z + .02); steamJet.scale.setScalar(1 + Math.sin(g.t * 30) * .1); }
+    spillMesh.visible = g.spill > 0; if (g.spill > 0) spillMesh.scale.setScalar(Math.min(1, .3 + g.spill * .4));
+    // held tool
+    const pouring = g.tool === 'pitcher' && g.down && g.pointer && g.fill >= .4 && g.foam;
+    if (heldMesh && g.pointer && g.down) { heldGroup.visible = true; const sy = surface.position.y * CUP_R; const ty = g.tool === 'pitcher' ? .75 : g.tool === 'pick' ? sy + .02 : .55; heldGroup.position.set(g.pointer.x, ty, g.pointer.z);
+      if (g.tool === 'pitcher') { heldMesh.rotation.x = pouring ? -1.05 : -.3; heldMesh.position.set(0, 0, -.12); } else if (g.tool === 'pick') { heldMesh.rotation.x = .5; } }
+    else heldGroup.visible = false;
+    milkStream.visible = !!pouring; if (pouring) { const top = heldGroup.position.y + .05, bot = surface.position.y * CUP_R; milkStream.position.set(g.pointer.x, (top + bot) / 2, g.pointer.z + .02); milkStream.scale.y = Math.max(.05, top - bot); }
+    cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; cat3d.rotation.z = Math.sin(g.t * 1.1) * .03;
+    autoComment(dt);
+    document.getElementById('b-done').classList.toggle('off', g.fill < .9);
+  } else if (g.phase === 'photo') { g.photo.t += dt; (presGroup.userData.sparks || []).forEach(sp => { const k = Math.sin(g.photo.t * 3 + sp.userData.ph * 1.3); sp.scale.setScalar(.1 + Math.max(0, k) * .12); sp.material.rotation = g.photo.t * .5 + sp.userData.ph; }); cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; }
+  camera.position.lerp(camState.pos, .08); camera.lookAt(camState.look);
+  // HUD
+  document.getElementById('s-cup-t').textContent = g.fill < .05 ? 'カップは空' : g.fill < .5 ? 'エスプレッソ ' + Math.round(g.fill * 100) + '%' : g.fill > 1.0 ? 'あふれた' : 'カップ ' + Math.round(g.fill * 100) + '%';
+  document.getElementById('s-milk-t').textContent = g.steaming ? 'スチーム中 ' + g.steamT.toFixed(1) + 's' : g.foam === 'fine' ? 'きめ細かい泡' : g.foam === 'thin' ? '泡が少なめ' : g.foam === 'coarse' ? '泡が粗い' : 'ミルクは冷たい';
+  const sc = document.getElementById('s-crema'); const fresh = g.crema > 0 ? Math.max(0, 1 - g.cremaAge / 90) : 0; document.getElementById('s-crema-t').textContent = g.brewing > 0 ? '抽出中…' : g.crema <= 0 ? 'クレマなし' : fresh > .6 ? 'クレマたっぷり' : fresh > .25 ? 'クレマ薄れてきた' : 'クレマが消えた'; sc.style.color = g.crema > 0 && fresh < .4 ? '#c9553d' : '#6b3f2a';
+  const steps = [g.crema > 0, !!g.foam, g.fill >= .9, g.poured > 2.5, g.phase === 'photo'];
+  let cur = steps.findIndex(v => !v); if (cur < 0) cur = 4;
+  for (let i = 0; i < 5; i++) { const el = document.getElementById('st' + i); el.classList.toggle('done', steps[i]); el.classList.toggle('on', !steps[i] && i === cur); }
+  document.getElementById('guide-t').textContent = g.phase === 'photo' ? 'できあがり！' : ['エスプレッソを淹れよう', 'ミルクをスチームしよう', 'ミルクを注ごう', '模様を描こう', '「できた」で仕上げよう'][cur];
+}
+function autoComment(dt) {
+  if (g.msgCool > 0 || g.msgT < 6) return; let m = null;
+  const fresh = g.crema > 0 ? Math.max(0, 1 - g.cremaAge / 90) : 1;
+  if (g.crema > 0 && !g.foam && fresh < .5) m = 'クレマが薄れてきた。急いでスチームしよう';
+  else if (g.foam && g.fill < .5 && g.tool !== 'pitcher') m = 'ピッチャーを持って、カップを押さえて注いでね';
+  else if (g.tool === 'pitcher' && g.fill >= .55 && g.fill < .9) m = '左右に小さくふりながら手前に引くと、葉っぱみたいになるよ';
+  else if (g.fill >= .9 && g.phase === 'make') m = '最後にまっすぐ通すとハートの先になる。できたら「できた」';
+  if (m) { say(m, 'happy'); g.msgCool = 10; }
+}
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .07, .45, .9));
+composer.addPass(new OutputPass());
+composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); vec2 d = vUv - 0.5; float v = 1.0 - dot(d, d) * 0.5; c.rgb *= v; c.rgb = mix(c.rgb, c.rgb * vec3(1.05, 0.985, 0.965), 0.7); c.rgb = (c.rgb - 0.5) * 1.06 + 0.5; c.rgb = mix(vec3(dot(c.rgb, vec3(0.299, 0.587, 0.114))), c.rgb, 1.08); gl_FragColor = c; }' }));
+function render() { composer.render(); }
+function resize() { const w = innerWidth, hh = innerHeight; renderer.setSize(w, hh, false); composer.setSize(w, hh); camera.aspect = w / hh; camera.fov = w / hh < .6 ? 68 : 50; camera.updateProjectionMatrix(); const por = w / hh < .8; if (por !== PORTRAIT || !applyLayout.done) { applyLayout(por); applyLayout.done = true; } }
+addEventListener('resize', resize); resize();
+
+// ================= photo / presentation =================
+const presGroup = new THREE.Group(); scene.add(presGroup); presGroup.visible = false;
+const sparkTex = (() => { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 64; const x2 = cv2.getContext('2d'); x2.fillStyle = '#fff2a8'; x2.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; x2.lineTo(32 + Math.cos(a) * 30, 32 + Math.sin(a) * 30); x2.lineTo(32 + Math.cos(a + Math.PI / 4) * 7, 32 + Math.sin(a + Math.PI / 4) * 7); } x2.closePath(); x2.fill(); return new THREE.CanvasTexture(cv2); })();
+function resetPresentation() { presGroup.visible = false; while (presGroup.children.length) presGroup.remove(presGroup.children[0]); presGroup.userData.sparks = []; camState.pos.copy(CAM.make.pos); camState.look.copy(CAM.make.look); heldGroup.visible = true; spillMesh.visible = false; document.getElementById('status').classList.remove('hidden'); document.getElementById('staff').classList.remove('hidden'); updateSurface(); }
+function finish() {
+  g.phase = 'photo'; sfx.done();
+  const st = stats(); track('latte_finish', { white: +st.white.toFixed(2), edge: +st.edge.toFixed(3), foam: st.foam || '', spill: +st.spill.toFixed(1) });
+  const fresh = Math.max(0, 1 - g.cremaAge / 90);
+  const parts = [st.white < .08 ? 'ほとんどクレマ色' : st.white < .4 ? '白と茶色のバランスがいい' : 'ミルクたっぷり', st.edge > .02 ? '模様が細かい' : st.edge > .009 ? 'すっきりした模様' : 'やさしい一色', st.foam === 'fine' ? 'つやつやの泡' : st.foam === 'coarse' ? 'ふんわり粗めの泡' : '薄めの泡'];
+  let msg = parts.join('、') + 'のラテ'; if (fresh < .35) msg += '。クレマが薄れてコントラストひかえめ'; if (st.spill > .5) msg += '。ちょっとこぼれたけど、それも味'; if (st.cocoa > 0) msg += '。ココア付き';
+  g.photo = { t: 0, msg };
+  // spoon + sparkles
+  const spoon = new THREE.Group(); presGroup.add(spoon); spoon.position.set(1.0, -.26, .85); spoon.rotation.y = -.7; const sb = mesh(new THREE.SphereGeometry(.09, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), mats.steel, 0, .03, 0, spoon); sb.rotation.x = Math.PI; sb.scale.set(1, .5, 1.3); sb.material = mats.steel.clone(); sb.material.side = THREE.DoubleSide; cyl(.014, .018, .4, mats.steel, 0, .03, .3, spoon).rotation.x = Math.PI / 2 - .2;
+  for (let i = 0; i < 10; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false })); const a = Math.random() * 6.28, r = 1.1 + Math.random() * .5; sp.position.set(Math.cos(a) * r, .3 + Math.random() * .6, Math.sin(a) * r); sp.scale.setScalar(.15); sp.userData.ph = Math.random() * 6; presGroup.add(sp); presGroup.userData.sparks.push(sp); }
+  presGroup.visible = true; heldGroup.visible = false; selRing.visible = false; milkStream.visible = false; updateSurface();
+  camState.pos.copy(CAM.photo.pos); camState.look.copy(CAM.photo.look);
+  document.getElementById('status').classList.add('hidden'); document.getElementById('staff').classList.add('hidden'); document.getElementById('held').classList.add('hidden');
+  document.getElementById('r-msg').textContent = msg; document.getElementById('result').classList.remove('hidden');
+  setTimeout(() => { render(); saveToGallery(); }, 900);
+}
+function saveToGallery() {
+  try { const t = document.createElement('canvas'); t.width = 150; t.height = 200; const tx = t.getContext('2d'); const src = renderer.domElement; const sw = src.width, shh = Math.min(src.height, sw * 200 / 150); tx.drawImage(src, 0, (src.height - shh) * .35, sw, shh, 0, 0, 150, 200); const arr = JSON.parse(localStorage.getItem('latte-gallery') || '[]'); arr.unshift(t.toDataURL('image/jpeg', .7)); while (arr.length > 12) arr.pop(); localStorage.setItem('latte-gallery', JSON.stringify(arr)); } catch (e) {}
+}
+function openGallery() {
+  let arr = []; try { arr = JSON.parse(localStorage.getItem('latte-gallery') || '[]'); } catch (e) {}
+  const grid = document.getElementById('g-grid'); grid.innerHTML = ''; arr.forEach(src => { const im = document.createElement('img'); im.src = src; grid.appendChild(im); });
+  document.getElementById('g-empty').classList.toggle('hidden', arr.length > 0); document.getElementById('gallery').classList.remove('hidden');
+}
+
+// ================= buttons =================
+document.getElementById('start').onclick = () => { ensureAudio(); track('latte_start'); document.getElementById('title').classList.add('hidden'); newLatte(); };
+document.getElementById('again').onclick = () => { document.getElementById('result').classList.add('hidden'); newLatte(); };
+document.getElementById('b-reset').onclick = () => { document.getElementById('result').classList.add('hidden'); newLatte(); sfx.tap(); };
+document.getElementById('b-done').onclick = () => { if (g.phase !== 'make') return; if (g.fill >= .9) finish(); else say(g.fill >= .4 ? 'カップがいっぱいになるまで注いでから' : 'エスプレッソを淹れて、ミルクを注いでから「できた」だよ'); };
+document.getElementById('b-gallery').onclick = openGallery;
+document.getElementById('held').onclick = () => { setHeld(null); say('手ぶら'); sfx.tap(); };
+document.getElementById('g-close').onclick = () => document.getElementById('gallery').classList.add('hidden');
+document.getElementById('save').onclick = () => { track('latte_save'); render(); const a = document.createElement('a'); a.download = 'latte-' + Date.now() + '.png'; a.href = renderer.domElement.toDataURL('image/png'); a.click(); };
+document.getElementById('share').onclick = () => { track('latte_share'); const t = `ラテアート屋さんで作ったよ ☕ ${g.photo ? g.photo.msg : ''} #ラテアート屋さん`; open('https://x.com/intent/post?text=' + encodeURIComponent(t) + '&url=' + encodeURIComponent(location.href.split('?')[0]), '_blank'); };
+
+newLatte(); g.phase = 'title';
+document.getElementById('loading').remove();
+requestAnimationFrame(frame);
+// ---- 公開用サムネイル (?og=1 / ?og=icon): ロゼッタを注いで写真の構図で止める
+const OG = new URLSearchParams(location.search).get('og');
+function demoPour() { // 左右にふりながら手前に引いて、最後にまっすぐ通す
+  g.brewing = 3; for (let i = 0; i < 200; i++) update(1 / 60); g.foam = 'fine'; g.steamT = 3; setHeld({ kind: 'tool', id: 'pitcher', name: 'ピッチャー' });
+  const step = (x, z, n) => { for (let i = 0; i < n; i++) { g.pointer = { x, z }; g.down = true; update(1 / 60); } };
+  step(0, .15, 70); // 中心に注いでベースを作る
+  for (let i = 0; i < 240; i++) { const t = i / 240; g.pointer = { x: Math.sin(t * Math.PI * 2 * 5.5) * .16, z: .3 - t * .72 }; g.down = true; update(1 / 60); } // wiggle backward (5〜6 回 = 葉の数)
+  for (let i = 0; i < 26; i++) { g.pointer = { x: 0, z: -.6 + i * .05 }; g.down = true; update(1 / 60); } // pull through
+  g.down = false; g.pointer = null; for (let i = 0; i < 40; i++) update(1 / 60);
+}
+if (OG) { document.body.classList.add('og'); newLatte(); g.phase = 'make'; demoPour();
+  const cam = OG === 'icon' ? { pos: [0, 2.2, 1.6], look: [0, .1, .1] } : { pos: [.5, 2.0, 2.2], look: [0, .1, .15] };
+  CAM.photo.pos.fromArray(cam.pos); CAM.photo.look.fromArray(cam.look); finish(); camera.position.copy(CAM.photo.pos); camera.lookAt(CAM.photo.look); update(0); render(); }
+window.__g = () => g; window.__api = { CAM, LAYOUT, applyLayout, resize, pickAt, worldAt, pickables, update, render, stats, newLatte, setHeld, finish, demoPour, simulate, camera, scene, renderer, THREE, u, v, w, N, machine, brewBtn, wand, pitcherRack };
+</script>
+</body>
+</html>
