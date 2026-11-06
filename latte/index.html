@@ -75,7 +75,7 @@
   <button class="pill" id="b-reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v5h5"/></svg></button>
   <button class="pill off" id="b-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>できた</button>
 </div>
-<div id="guide"><span id="guide-t">エスプレッソを淹れよう</span><span class="dots"><i id="st0"></i><i id="st1"></i><i id="st2"></i><i id="st3"></i><i id="st4"></i></span></div>
+<div id="guide"><span id="guide-t">マシンのボタンをタップ</span><span class="dots"><i id="st0"></i><i id="st1"></i><i id="st2"></i><i id="st3"></i><i id="st4"></i></span></div>
 <div id="status">
   <span id="s-cup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M16 10h2a2 2 0 0 1 0 4h-2"/></svg><em id="s-cup-t">カップは空</em></span>
   <span id="s-milk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 5v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V8z"/></svg><em id="s-milk-t">ミルクは冷たい</em></span>
@@ -88,11 +88,11 @@
   <h1>ラテアート屋さん</h1>
   <p>ミルクとクレマが本当に流れます。<br>注ぎ方で、模様が生まれます。</p>
   <div class="howto">
-    <b>マシン</b>：ボタンをタップしてエスプレッソを淹れる<br>
-    <b>スチーム</b>：ノズルを長押し。2〜4秒がきめ細かい<br>
-    <b>ピッチャー</b>：カップを押さえると注げる。ゆっくり＝白く太く、速く＝細く<br>
-    <b>ロゼッタ</b>：左右にふりながら引いて、最後にまっすぐ通す<br>
-    <b>ピック</b>：泡の上をなぞって描く　<b>ココア</b>：タップでふりかけ
+    <b>1 淹れる</b>：奥のマシンのピンクのボタンをタップ<br>
+    <b>2 スチーム</b>：マシン右の銀のノズルを長押し (2〜4秒)<br>
+    <b>3 注ぐ</b>：手前のピッチャーをタップして持ち、カップを指で押さえたまま動かす<br>
+    <b>4 模様</b>：左右に小さくふりながら手前へ引き、最後にまっすぐ通す<br>
+    ピンクのリングが「今触る場所」。ピックとココアはお好みで
   </div>
   <button class="big" id="start">はじめる</button>
 </div>
@@ -260,8 +260,8 @@ const portafilter = new THREE.Group(); machine.add(portafilter); portafilter.pos
 const spout = cyl(.02, .02, .08, mats.steelDark, -.15, .28, .5, machine);                 // espresso spout
 const brewBtn = mesh(new THREE.SphereGeometry(.09, 24, 16), mats.knob, .45, .62, .42, machine); brewBtn.scale.set(1, .7, .6);
 mesh(new THREE.SphereGeometry(.05, 16, 12), M('#ffb060', { emissive: '#ff8a3a', emissiveIntensity: .5 }), .45, .78, .42, machine);
-const wand = new THREE.Group(); machine.add(wand); wand.position.set(.95, .5, .2); const wandArm = cyl(.022, .022, .5, mats.steel, 0, -.22, 0, wand); wandArm.rotation.z = .35; cyl(.03, .02, .06, mats.steelDark, -.09, -.46, 0, wand);
-const steamJet = new THREE.Mesh(new THREE.ConeGeometry(.09, .3, 16, 1, true), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .35, depthWrite: false })); steamJet.position.set(-.09, -.62, 0); steamJet.rotation.x = Math.PI; steamJet.visible = false; wand.add(steamJet);
+const wand = new THREE.Group(); machine.add(wand); wand.position.set(.9, .55, .45); const wandArm = cyl(.035, .035, .62, mats.steel, 0, -.26, 0, wand); wandArm.rotation.z = .4; cyl(.05, .035, .1, mats.steelDark, -.14, -.56, 0, wand); const grip = cyl(.055, .055, .16, mats.knob, .04, -.04, 0, wand); grip.rotation.z = .4;
+const steamJet = new THREE.Mesh(new THREE.ConeGeometry(.09, .3, 16, 1, true), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .35, depthWrite: false })); steamJet.position.set(-.14, -.75, 0); steamJet.rotation.x = Math.PI; steamJet.visible = false; wand.add(steamJet);
 const espressoStream = cyl(.018, .018, .6, M('#4a2a18'), -.15, 0, .5, machine); espressoStream.visible = false; espressoStream.castShadow = false;
 
 // ---------- cup + saucer + liquid surface ----------
@@ -289,7 +289,7 @@ const spillMesh = mesh(new THREE.CircleGeometry(1.3, 48), new THREE.MeshStandard
 // ---------- tools ----------
 const pickables = []; const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 function makePick(mesh, info, r = .17) { const hit = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), hitMat); hit.position.y = .05; mesh.add(hit); mesh.traverse(o => { o.userData.pick = info; }); pickables.push(mesh); mesh.userData.info = info; return mesh; }
-makePick(brewBtn, { kind: 'act', id: 'brew', name: '淹れる' }, .2); makePick(wand, { kind: 'act', id: 'steam', name: 'スチーム' }, .3);
+makePick(brewBtn, { kind: 'act', id: 'brew', name: '淹れる' }, .26); makePick(wand, { kind: 'act', id: 'steam', name: 'スチーム' }, .42); pickables[pickables.length - 1].children[pickables[pickables.length - 1].children.length - 1].position.set(-.08, -.4, 0);
 const rackTray = asset('tray') || rbox(.54, .07, 2.0, .1, mats.wood, 0, 0, 0); scene.add(rackTray);
 function makePitcher() { const gp = new THREE.Group(); const body = mesh(new THREE.LatheGeometry([new THREE.Vector2(0, 0), new THREE.Vector2(.14, 0), new THREE.Vector2(.17, .12), new THREE.Vector2(.15, .28), new THREE.Vector2(.14, .3), new THREE.Vector2(.12, .3), new THREE.Vector2(.13, .02), new THREE.Vector2(0, .02)], 40), mats.steel, 0, 0, 0, gp); body.material = mats.steel.clone(); body.material.side = THREE.DoubleSide; const sp = mesh(new THREE.ConeGeometry(.05, .1, 12), mats.steel, 0, .3, .14, gp); sp.rotation.x = -1.2; const h = mesh(new THREE.TorusGeometry(.08, .018, 10, 24, Math.PI), mats.steel, 0, .17, -.16, gp); h.rotation.y = Math.PI / 2; h.rotation.z = -Math.PI / 2; cyl(.11, .11, .01, M('#fffaf2', { roughness: .4 }), 0, .27, 0, gp); return gp; }
 function makeStickPick() { const gp = new THREE.Group(); const s = cyl(.016, .006, .6, mats.steel, 0, .3, 0, gp); cyl(.035, .035, .16, mats.knob, 0, .08, 0, gp); sph(.04, mats.knob, 0, 0, 0, gp); return gp; }
@@ -297,6 +297,27 @@ function makeShaker() { const gp = new THREE.Group(); cyl(.1, .1, .22, mats.whit
 const pitcherRack = makePick(makePitcher(), { kind: 'tool', id: 'pitcher', name: 'ピッチャー' }, .26); scene.add(pitcherRack);
 const pickRack = makePick(makeStickPick(), { kind: 'tool', id: 'pick', name: 'ピック' }, .22); pickRack.rotation.z = Math.PI / 2; scene.add(pickRack);
 const shakerRack = makePick(makeShaker(), { kind: 'tool', id: 'cocoa', name: 'ココア' }, .24); scene.add(shakerRack);
+// 今やることの場所に出す脈打つリングと札
+const hintRing = new THREE.Mesh(new THREE.RingGeometry(.2, .26, 48), new THREE.MeshBasicMaterial({ color: '#ef7f9a', transparent: true, opacity: .9, side: THREE.DoubleSide, depthTest: false })); hintRing.rotation.x = -Math.PI / 2; hintRing.renderOrder = 20; hintRing.visible = false; scene.add(hintRing);
+const hintCv = document.createElement('canvas'); hintCv.width = 384; hintCv.height = 112; const hintTex = new THREE.CanvasTexture(hintCv); hintTex.colorSpace = THREE.SRGBColorSpace;
+const hintSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: hintTex, transparent: true, depthTest: false })); hintSprite.scale.set(1.3, .38, 1); hintSprite.renderOrder = 21; hintSprite.visible = false; scene.add(hintSprite);
+let hintText = '';
+function setHint(target, text, r = 1) { // target: Object3D か {x,y,z}
+  if (!target) { hintRing.visible = hintSprite.visible = false; hintText = ''; return; }
+  const wp = new THREE.Vector3(); if (target.isObject3D) target.getWorldPosition(wp); else wp.set(target.x, target.y, target.z);
+  hintRing.visible = hintSprite.visible = true; hintRing.position.set(wp.x, wp.y + .02, wp.z); hintRing.userData.r = r; hintSprite.position.set(wp.x, wp.y + .25, wp.z + .3 * r + .25); // 札はリングの手前 (画面では下)
+  if (text !== hintText) { hintText = text; const x2 = hintCv.getContext('2d'); x2.clearRect(0, 0, 384, 112); x2.fillStyle = '#ef7f9a'; x2.beginPath(); x2.roundRect(8, 8, 368, 78, 30); x2.fill(); x2.beginPath(); x2.moveTo(176, 84); x2.lineTo(208, 84); x2.lineTo(192, 106); x2.closePath(); x2.fill(); x2.fillStyle = '#fff'; x2.font = '900 34px "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText(text, 192, 48); hintTex.needsUpdate = true; }
+}
+function updateHint() {
+  if (g.phase !== 'make') return setHint(null);
+  if (g.brewing > 0) return setHint(null);
+  if (g.crema <= 0) return setHint(brewBtn, 'ここをタップ', .8);
+  if (!g.foam && !g.steaming) { const wp = new THREE.Vector3(); wand.getWorldPosition(wp); return setHint({ x: wp.x - .1, y: wp.y - .5, z: wp.z }, '長押し 2〜4秒', 1.1); }
+  if (g.steaming) return setHint(null);
+  if (g.fill < .9 && g.tool !== 'pitcher') return setHint(pitcherRack, 'タップで持つ', 1);
+  if (g.fill < .9 && g.tool === 'pitcher' && !g.down) return setHint({ x: 0, y: -.1, z: 0 }, '押さえて ゆっくり動かす', 1.6);
+  return setHint(null);
+}
 const selRing = new THREE.Mesh(new THREE.RingGeometry(.17, .22, 40), new THREE.MeshBasicMaterial({ color: '#ef8fa5', transparent: true, opacity: .9, side: THREE.DoubleSide })); selRing.rotation.x = -Math.PI / 2; selRing.visible = false; scene.add(selRing);
 const heldGroup = new THREE.Group(); scene.add(heldGroup); let heldMesh = null;
 const milkStream = new THREE.Mesh(new THREE.CylinderGeometry(.014, .02, 1, 10, 1, true), new THREE.MeshStandardMaterial({ color: '#fffaf2', roughness: .3 })); milkStream.visible = false; scene.add(milkStream);
@@ -307,7 +328,7 @@ function cocoaAt(x, z) { for (let n = 0; n < 60; n++) { const a = Math.random() 
 // ---------- layout ----------
 const LAYOUT = {
   land: { cam: { pos: [.26, 4.2, 3.4], look: [.26, .05, .3] }, tray: [1.5, -.27, .4, 0], pitcher: [1.5, -.27, -.2, 0], pick: [1.5, -.2, .35, 0], cocoa: [1.5, -.27, .85, 0], machine: [.9, -.27, -1.35, 1] },
-  port: { cam: { pos: [0, 3.65, 1.75], look: [0, .05, .7] }, tray: [0, -.27, 1.35, Math.PI / 2], pitcher: [-.6, -.27, 1.35, 0], pick: [.12, -.2, 1.35, 0], cocoa: [.7, -.27, 1.35, 0], machine: [.45, -.27, -1.15, .8] },
+  port: { cam: { pos: [0, 3.65, 1.75], look: [0, .05, .7] }, tray: [0, -.27, 1.35, Math.PI / 2], pitcher: [-.6, -.27, 1.35, 0], pick: [.12, -.2, 1.35, 0], cocoa: [.7, -.27, 1.35, 0], machine: [-.02, -.27, -1.22, .85] },
 };
 let PORTRAIT = false;
 function applyLayout(portrait) {
@@ -396,7 +417,7 @@ function update(dt) {
     simulate(dt); updateSurface();
     // machine animation
     espressoStream.visible = g.brewing > 0; if (g.brewing > 0) { espressoStream.position.y = .02; espressoStream.scale.y = .9; }
-    if (g.steaming) { steamPitcher.visible = true; const wp = new THREE.Vector3(); wand.getWorldPosition(wp); steamPitcher.position.set(wp.x - .1, -.27, wp.z + .02); steamJet.scale.setScalar(1 + Math.sin(g.t * 30) * .1); }
+    if (g.steaming) { steamPitcher.visible = true; const wp = new THREE.Vector3(); wand.getWorldPosition(wp); steamPitcher.position.set(wp.x - .14 * machine.scale.x, -.27, wp.z + .02); steamJet.scale.setScalar(1 + Math.sin(g.t * 30) * .1); }
     spillMesh.visible = g.spill > 0; if (g.spill > 0) spillMesh.scale.setScalar(Math.min(1, .3 + g.spill * .4));
     // held tool
     const pouring = g.tool === 'pitcher' && g.down && g.pointer && g.fill >= .4 && g.foam;
@@ -405,7 +426,7 @@ function update(dt) {
     else heldGroup.visible = false;
     milkStream.visible = !!pouring; if (pouring) { const top = heldGroup.position.y + .05, bot = surface.position.y * CUP_R; milkStream.position.set(g.pointer.x, (top + bot) / 2, g.pointer.z + .02); milkStream.scale.y = Math.max(.05, top - bot); }
     cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; cat3d.rotation.z = Math.sin(g.t * 1.1) * .03;
-    autoComment(dt);
+    autoComment(dt); updateHint(); if (hintRing.visible) { const k = 1 + Math.sin(g.t * 5) * .12; hintRing.scale.setScalar((hintRing.userData.r || 1) * k); hintSprite.position.y += Math.sin(g.t * 5) * .002; }
     document.getElementById('b-done').classList.toggle('off', g.fill < .9);
   } else if (g.phase === 'photo') { g.photo.t += dt; (presGroup.userData.sparks || []).forEach(sp => { const k = Math.sin(g.photo.t * 3 + sp.userData.ph * 1.3); sp.scale.setScalar(.1 + Math.max(0, k) * .12); sp.material.rotation = g.photo.t * .5 + sp.userData.ph; }); cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; }
   camera.position.lerp(camState.pos, .08); camera.lookAt(camState.look);
@@ -416,7 +437,7 @@ function update(dt) {
   const steps = [g.crema > 0, !!g.foam, g.fill >= .9, g.poured > 2.5, g.phase === 'photo'];
   let cur = steps.findIndex(v => !v); if (cur < 0) cur = 4;
   for (let i = 0; i < 5; i++) { const el = document.getElementById('st' + i); el.classList.toggle('done', steps[i]); el.classList.toggle('on', !steps[i] && i === cur); }
-  document.getElementById('guide-t').textContent = g.phase === 'photo' ? 'できあがり！' : ['エスプレッソを淹れよう', 'ミルクをスチームしよう', 'ミルクを注ごう', '模様を描こう', '「できた」で仕上げよう'][cur];
+  document.getElementById('guide-t').textContent = g.phase === 'photo' ? 'できあがり！' : ['マシンのボタンをタップ', 'ノズルを長押し (2〜4秒)', 'ピッチャーで注ごう', 'ふって引いて、すっと通す', '「できた」で仕上げよう'][cur];
 }
 function autoComment(dt) {
   if (g.msgCool > 0 || g.msgT < 6) return; let m = null;
@@ -450,7 +471,7 @@ function finish() {
   // spoon + sparkles
   const spoon = new THREE.Group(); presGroup.add(spoon); spoon.position.set(1.0, -.26, .85); spoon.rotation.y = -.7; const sb = mesh(new THREE.SphereGeometry(.09, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), mats.steel, 0, .03, 0, spoon); sb.rotation.x = Math.PI; sb.scale.set(1, .5, 1.3); sb.material = mats.steel.clone(); sb.material.side = THREE.DoubleSide; cyl(.014, .018, .4, mats.steel, 0, .03, .3, spoon).rotation.x = Math.PI / 2 - .2;
   for (let i = 0; i < 10; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false })); const a = Math.random() * 6.28, r = 1.1 + Math.random() * .5; sp.position.set(Math.cos(a) * r, .3 + Math.random() * .6, Math.sin(a) * r); sp.scale.setScalar(.15); sp.userData.ph = Math.random() * 6; presGroup.add(sp); presGroup.userData.sparks.push(sp); }
-  presGroup.visible = true; heldGroup.visible = false; selRing.visible = false; milkStream.visible = false; updateSurface();
+  presGroup.visible = true; heldGroup.visible = false; selRing.visible = false; milkStream.visible = false; setHint(null); updateSurface();
   camState.pos.copy(CAM.photo.pos); camState.look.copy(CAM.photo.look);
   document.getElementById('status').classList.add('hidden'); document.getElementById('staff').classList.add('hidden'); document.getElementById('held').classList.add('hidden');
   document.getElementById('r-msg').textContent = msg; document.getElementById('result').classList.remove('hidden');
