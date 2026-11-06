@@ -26,6 +26,8 @@
   .pill:active { transform:translateY(2px); }
   .pill.cta { background:linear-gradient(#f7a3b8, #ec7a97); color:#fff; box-shadow:0 5px 14px rgba(236,122,151,.4), inset 0 -3px 0 rgba(0,0,0,.08); }
   .pill.off { background:#f7eef0; color:#cdb3b8; box-shadow:none; }
+  .pill.pulse:not(.off) { animation:pulse 1s ease-in-out infinite; background:linear-gradient(#f7a3b8, #ec7a97); color:#fff; }
+  @keyframes pulse { 0%,100% { transform:scale(1); box-shadow:0 5px 14px rgba(236,122,151,.4); } 50% { transform:scale(1.07); box-shadow:0 8px 20px rgba(236,122,151,.6); } }
   .pill svg { width:16px; height:16px; }
   .spacer { flex:1; }
   #guide { position:fixed; left:50%; transform:translateX(-50%); top:calc(env(safe-area-inset-top) + 62px); z-index:3; pointer-events:none; display:flex; flex-direction:column; align-items:center; gap:5px; background:#fff; border-radius:22px; padding:9px 18px 8px; box-shadow:var(--shadow); }
@@ -153,12 +155,18 @@ function fluidStep(dt) {
   if (g.foam === 'coarse') { // 粗い泡はにじむ
     for (let j = 1; j < N - 1; j += 2) for (let i = 1; i < N - 1; i++) { const k = j * N + i; if (mask[k]) w[k] += ((w[k - 1] + w[k + 1] + w[k - N] + w[k + N]) * .25 - w[k]) * dt * 1.2; } }
 }
-function splatVel(x, z, r, fx, fz, radial, dt) { // r は world。fx,fz = 流れ (マス/秒)、radial = 外向きの押し
-  const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C, R2 = rc * rc * 4;
+function splatVel(x, z, r, fx, fz, radial, dt) { // r は world。fx,fz = 流れ (マス/秒)、radial = 注ぎ口から外向きの押し (液面全体が広がる: 遠くは 1/d で弱まる)
+  const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C;
   const i0 = Math.max(1, Math.floor(ci - rc * 2)), i1 = Math.min(N - 2, Math.ceil(ci + rc * 2)), j0 = Math.max(1, Math.floor(cj - rc * 2)), j1 = Math.min(N - 2, Math.ceil(cj + rc * 2));
-  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d2 = dx * dx + dz * dz; if (d2 > R2) continue; const wgt = Math.exp(-d2 / (rc * rc)); const d = Math.sqrt(d2) + .3;
-    u[k] += fx * wgt * dt; v[k] += fz * wgt * dt; pu[k] += radial * dx / d * wgt; pv[k] += radial * dz / d * wgt; }
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d2 = dx * dx + dz * dz; if (d2 > rc * rc * 4) continue; const wgt = Math.exp(-d2 / (rc * rc)); u[k] += fx * wgt * dt; v[k] += fz * wgt * dt; }
+  if (radial > 0) { const step = 2; for (let j = 1; j < N - 1; j += step) for (let i = 1; i < N - 1; i += step) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d = Math.sqrt(dx * dx + dz * dz) + .5; const f = d < rc ? d / rc : rc / d; const px = radial * f * dx / d, pz = radial * f * dz / d; pu[k] += px; pv[k] += pz; pu[k + 1] += px; pv[k + 1] += pz; pu[k + N] += px; pv[k + N] += pz; pu[k + N + 1] += px; pv[k + N + 1] += pz; } }
 }
+function splatPush(x, z, r, fx, fz) { // 圧力計算の外で白を運ぶ流れ (ピック: 泡を引きずる)
+  const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C; const i0 = Math.max(1, Math.floor(ci - rc * 2)), i1 = Math.min(N - 2, Math.ceil(ci + rc * 2)), j0 = Math.max(1, Math.floor(cj - rc * 2)), j1 = Math.min(N - 2, Math.ceil(cj + rc * 2));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj; const wgt = Math.exp(-(dx * dx + dz * dz) / (rc * rc)); pu[k] += fx * wgt; pv[k] += fz * wgt; } }
+function etchAt(x, z, r, target, rate, dt) { // ピックの先: その場の白さを target (運んできた泡) に寄せる
+  const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C; const i0 = Math.max(1, Math.floor(ci - rc * 2)), i1 = Math.min(N - 2, Math.ceil(ci + rc * 2)), j0 = Math.max(1, Math.floor(cj - rc * 2)), j1 = Math.min(N - 2, Math.ceil(cj + rc * 2));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj; const wgt = Math.exp(-(dx * dx + dz * dz) / (rc * rc)); w[k] += (target - w[k]) * Math.min(1, rate * dt * wgt); } }
 function splatW(x, z, r, amt, dt) { const ci = (x / CUP_R + 1) * .5 * N, cj = (z / CUP_R + 1) * .5 * N, rc = r * W2C; const i0 = Math.max(1, Math.floor(ci - rc * 2)), i1 = Math.min(N - 2, Math.ceil(ci + rc * 2)), j0 = Math.max(1, Math.floor(cj - rc * 2)), j1 = Math.min(N - 2, Math.ceil(cj + rc * 2));
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = j * N + i; if (!mask[k]) continue; const dx = i - ci, dz = j - cj, d2 = dx * dx + dz * dz; const wgt = Math.exp(-d2 / (rc * rc)); if (wgt < .02) continue; w[k] = Math.min(1, Math.max(0, w[k] + amt * wgt * dt)); } }
 // 注ぎ口: ゆっくりなら白が真下にも浮く。速く動かすと真下は下から湧く茶色 (新しい液面) で、白はその周りに輪で出る → ふると葉が分かれる
@@ -192,11 +200,14 @@ function simulate(dt) {
     const sub = Math.max(1, Math.min(8, Math.ceil(Math.hypot(p.x - lp.x, p.z - lp.z) * W2C / 1.5))); // 動いた区間を 1.5 マスごとに分けて注ぐ (点線にならない)
     for (let q = 1; q <= sub; q++) { const f = q / sub, x = lp.x + (p.x - lp.x) * f, z = lp.z + (p.z - lp.z) * f;
       if (g.fill > .55) pourSplat(x, z, .02 + .035 * slow, (4 + 10 * slow) * strength, slow, dt / sub); else splatW(x, z, .08, .3, dt / sub);
-      splatVel(x, z, .05, vx * W2C * .1, vz * W2C * .1, 14 + 12 * slow, dt / sub); }
+      splatVel(x, z, .05, vx * W2C * .1, vz * W2C * .1, (22 + 16 * slow) / sub, dt / sub); }
     if (g.fill > 1.0) { g.spill += dt; if (g.msgCool <= 0) { say('あふれた！そこまでで止めよう', 'oops'); g.msgCool = 3; } }
     if (Math.random() < .3) sfx.pour();
-  } else g.lastP = null;
-  if (g.tool === 'pick' && g.down && g.pointer && g.fill >= .55) { const p = g.pointer, lp = g.lastP || p; const vx = (p.x - lp.x) / Math.max(dt, 1e-3), vz = (p.z - lp.z) / Math.max(dt, 1e-3); splatVel(p.x, p.z, .028, vx * W2C * .5, vz * W2C * .5, 0, dt); g.lastP = p; }
+  } else if (g.tool === 'pitcher') g.lastP = null;
+  if (g.tool === 'pick' && g.down && g.pointer && g.fill >= .55) { const p = g.pointer, lp = g.lastP || p; const vx = (p.x - lp.x) / Math.max(dt, 1e-3), vz = (p.z - lp.z) / Math.max(dt, 1e-3);
+    const sub = Math.max(1, Math.min(10, Math.ceil(Math.hypot(p.x - lp.x, p.z - lp.z) * W2C / 1.2)));
+    for (let q = 1; q <= sub; q++) { const f = q / sub, x = lp.x + (p.x - lp.x) * f, z = lp.z + (p.z - lp.z) * f; const k = cellOf(x, z); const here = k >= 0 ? w[k] : 0; g.carry = g.carry === undefined ? here : g.carry + (here - g.carry) * .12; etchAt(x, z, .016, g.carry, 40, dt / sub); splatPush(x, z, .034, vx * W2C * 1.6 / sub, vz * W2C * 1.6 / sub); splatVel(x, z, .04, vx * W2C * .2, vz * W2C * .2, 0, dt / sub); }
+    g.lastP = p; g.etched = (g.etched || 0) + Math.hypot(p.x - lp.x, p.z - lp.z); }
   if (g.fill > .3) fluidStep(dt);
 }
 
@@ -306,7 +317,7 @@ function setHint(target, text, r = 1) { // target: Object3D か {x,y,z}
   if (!target) { hintRing.visible = hintSprite.visible = false; hintText = ''; return; }
   const wp = new THREE.Vector3(); if (target.isObject3D) target.getWorldPosition(wp); else wp.set(target.x, target.y, target.z);
   hintRing.visible = hintSprite.visible = true; hintRing.position.set(wp.x, wp.y + .02, wp.z); hintRing.userData.r = r; hintSprite.position.set(wp.x, wp.y + .25, wp.z + .3 * r + .25); // 札はリングの手前 (画面では下)
-  if (text !== hintText) { hintText = text; const x2 = hintCv.getContext('2d'); x2.clearRect(0, 0, 384, 112); x2.fillStyle = '#ef7f9a'; x2.beginPath(); x2.roundRect(8, 8, 368, 78, 30); x2.fill(); x2.beginPath(); x2.moveTo(176, 84); x2.lineTo(208, 84); x2.lineTo(192, 106); x2.closePath(); x2.fill(); x2.fillStyle = '#fff'; x2.font = '900 34px "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText(text, 192, 48); hintTex.needsUpdate = true; }
+  if (text !== hintText) { hintText = text; const ex = { 'ここをタップ': 'ピンクのリングの所、マシンのボタンをタップしてエスプレッソを淹れてね', '長押し 2〜4秒': 'リングの所の銀のノズルを指で押さえたままにすると、ミルクをスチームできるよ。2〜4秒で離してね', 'タップで持つ': '手前のピッチャーをタップすると持てるよ', '押さえて ゆっくり動かす': 'カップを指で押さえたままゆっくり動かすと、ミルクが注がれて白が浮くよ', '泡の上をなぞる': 'ピックを持ったまま、カップの泡の上を指でなぞると、泡が引っぱられて線が描けるよ。丸い白をなぞるとハートになる', 'タップでふりかけ': 'カップの上をタップするとココアがかかるよ', 'ピックで描く (お好み)': '仕上げに、手前のピックで泡をなぞって描くこともできるよ。そのままでよければ右上の「できた」' }[text]; if (ex) say(ex); const x2 = hintCv.getContext('2d'); x2.clearRect(0, 0, 384, 112); x2.fillStyle = '#ef7f9a'; x2.beginPath(); x2.roundRect(8, 8, 368, 78, 30); x2.fill(); x2.beginPath(); x2.moveTo(176, 84); x2.lineTo(208, 84); x2.lineTo(192, 106); x2.closePath(); x2.fill(); x2.fillStyle = '#fff'; x2.font = '900 34px "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle'; x2.fillText(text, 192, 48); hintTex.needsUpdate = true; }
 }
 function updateHint() {
   if (g.phase !== 'make') return setHint(null);
@@ -316,6 +327,11 @@ function updateHint() {
   if (g.steaming) return setHint(null);
   if (g.fill < .9 && g.tool !== 'pitcher') return setHint(pitcherRack, 'タップで持つ', 1);
   if (g.fill < .9 && g.tool === 'pitcher' && !g.down) return setHint({ x: 0, y: -.1, z: 0 }, '押さえて ゆっくり動かす', 1.6);
+  if (g.fill >= .9) {
+    if (g.tool === 'pick' && !g.down && !(g.etched > .3)) return setHint({ x: 0, y: -.1, z: 0 }, '泡の上をなぞる', 1.6);
+    if (g.tool === 'cocoa' && !g.down && g.cocoa === 0) return setHint({ x: 0, y: -.1, z: 0 }, 'タップでふりかけ', 1.6);
+    if (g.tool === null && !(g.etched > .3) && g.cocoa === 0 && !g.pickHinted) return setHint(pickRack, 'ピックで描く (お好み)', 1);
+  }
   return setHint(null);
 }
 const selRing = new THREE.Mesh(new THREE.RingGeometry(.17, .22, 40), new THREE.MeshBasicMaterial({ color: '#ef8fa5', transparent: true, opacity: .9, side: THREE.DoubleSide })); selRing.rotation.x = -Math.PI / 2; selRing.visible = false; scene.add(selRing);
@@ -363,7 +379,7 @@ canvas.addEventListener('pointerdown', e => {
   if (pk) {
     if (pk.id === 'brew') { if (g.brewing > 0) return; if (g.crema > 0) { say('もう淹れてあるよ。クレマは時間がたつと薄くなるから早めにね'); return; } g.brewing = 3; sfx.brew(); say('エスプレッソを抽出中…'); return; }
     if (pk.id === 'steam') { g.steaming = true; g.down = true; steamPitcher.visible = true; steamJet.visible = true; say('スチーム中。2〜4秒でやめるときめ細かい泡になるよ'); return; }
-    if (g.tool === pk.id) { setHeld(null); say('手ぶら'); } else { setHeld(pk); sfx.tap(); say(pk.id === 'pitcher' ? (g.foam ? 'カップを押さえて注いでね。ゆっくり動かすと白く太く、速いと細く' : '先にミルクをスチームしてね') : pk.id === 'pick' ? '泡の上をなぞって描いてね' : 'カップの上でタップするとココアがかかるよ'); }
+    if (g.tool === pk.id) { setHeld(null); say('手ぶら'); } else { setHeld(pk); sfx.tap(); say(pk.id === 'pitcher' ? (g.foam ? 'カップを押さえて注いでね。ゆっくり動かすと白く太く、速いと細く' : '先にミルクをスチームしてね') : pk.id === 'pick' ? (g.fill >= .55 ? 'ピックを持ったよ。カップの泡の上を指でなぞると線が描けるよ' : 'ピックは注いだ後に使うよ。先にミルクを注いでね') : 'カップの上でタップするとココアがかかるよ'); }
     return;
   }
   const p = worldAt(e); if (!p) return; const inCup = Math.hypot(p.x, p.z) < CUP_R * 1.35; if (!inCup) return;
@@ -374,7 +390,7 @@ canvas.addEventListener('pointerdown', e => {
   else if (g.tool === 'cocoa') { if (g.fill >= .55) { cocoaAt(p.x, p.z); sfx.tap(); } else say('注いでからね'); }
 });
 canvas.addEventListener('pointermove', e => { if (!g || !g.down || g.steaming) return; const p = worldAt(e); if (p) g.pointer = p; });
-function release() { if (!g) return; if (g.steaming) { g.steaming = false; steamPitcher.visible = false; steamJet.visible = false; g.foam = g.steamT < 1.5 ? 'thin' : g.steamT <= 4.2 ? 'fine' : 'coarse'; say(g.foam === 'fine' ? 'きめ細かい泡。ピッチャーを持って注ごう' : g.foam === 'thin' ? 'ちょっと短め。泡が少ないから白が薄くなるよ (もう一度長押しで足せる)' : 'スチームしすぎ。泡が粗くてにじみやすいよ', g.foam === 'fine' ? 'happy' : 'oops'); } g.down = false; g.pointer = null; g.lastP = null; }
+function release() { if (!g) return; g.carry = undefined; if (g.steaming) { g.steaming = false; steamPitcher.visible = false; steamJet.visible = false; g.foam = g.steamT < 1.5 ? 'thin' : g.steamT <= 4.2 ? 'fine' : 'coarse'; say(g.foam === 'fine' ? 'きめ細かい泡。ピッチャーを持って注ごう' : g.foam === 'thin' ? 'ちょっと短め。泡が少ないから白が薄くなるよ (もう一度長押しで足せる)' : 'スチームしすぎ。泡が粗くてにじみやすいよ', g.foam === 'fine' ? 'happy' : 'oops'); } g.down = false; g.pointer = null; g.lastP = null; }
 canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
 
 // ================= 2D icons / cat =================
@@ -426,7 +442,7 @@ function update(dt) {
     else heldGroup.visible = false;
     milkStream.visible = !!pouring; if (pouring) { const top = heldGroup.position.y + .05, bot = surface.position.y * CUP_R; milkStream.position.set(g.pointer.x, (top + bot) / 2, g.pointer.z + .02); milkStream.scale.y = Math.max(.05, top - bot); }
     cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; cat3d.rotation.z = Math.sin(g.t * 1.1) * .03;
-    autoComment(dt); updateHint(); if (hintRing.visible) { const k = 1 + Math.sin(g.t * 5) * .12; hintRing.scale.setScalar((hintRing.userData.r || 1) * k); hintSprite.position.y += Math.sin(g.t * 5) * .002; }
+    autoComment(dt); updateHint(); document.getElementById('b-done').classList.toggle('pulse', g.fill >= .9); if (g.fill >= .9 && g.msgT > 4 && !g.pickHinted) { g.pickHinted = true; say('いっぱいになった。右上の「できた」で写真にできるよ。ピックで泡をなぞって描いてもいい', 'happy'); } if (hintRing.visible) { const k = 1 + Math.sin(g.t * 5) * .12; hintRing.scale.setScalar((hintRing.userData.r || 1) * k); hintSprite.position.y += Math.sin(g.t * 5) * .002; }
     document.getElementById('b-done').classList.toggle('off', g.fill < .9);
   } else if (g.phase === 'photo') { g.photo.t += dt; (presGroup.userData.sparks || []).forEach(sp => { const k = Math.sin(g.photo.t * 3 + sp.userData.ph * 1.3); sp.scale.setScalar(.1 + Math.max(0, k) * .12); sp.material.rotation = g.photo.t * .5 + sp.userData.ph; }); cat3d.position.y = -.05 + Math.sin(g.t * 2.2) * .015; }
   camera.position.lerp(camState.pos, .08); camera.lookAt(camState.look);
