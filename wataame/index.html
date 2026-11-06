@@ -8,6 +8,13 @@
 <meta name="description" content="ざらめを入れて、あたたまったら棒でくるくる。回し方で形が決まり、ざらめの順番で色が層になる、本物みたいなわたあめ屋さん。">
 <meta property="og:title" content="わたあめ屋さん">
 <meta property="og:description" content="ざらめを入れて、棒でくるくる巻いて、ふわふわのわたあめを作ろう。">
+<meta property="og:image" content="https://omise.ochinana.jp/wataame/og.png">
+<meta property="og:url" content="https://omise.ochinana.jp/wataame/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#fbe6ec">
 <style>
   :root { color-scheme: light; --cream:#fff8f3; --pink:#f6b9c7; --pink2:#fde7ec; --berry:#ef7f9a; --cocoa:#7a4a3a; --ink:#6b5047; --shadow:0 4px 14px rgba(190,120,130,.22); }
   html, body { margin:0; height:100%; background:#fbe6ec; overflow:hidden; font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Rounded Mplus 1c","Noto Sans JP",-apple-system,sans-serif; font-weight:700; touch-action:none; -webkit-user-select:none; user-select:none; }
@@ -56,6 +63,7 @@
   #gallery .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:8px 0; max-height:50vh; overflow:auto; }
   #gallery img { width:100%; border-radius:14px; background:#eee; box-shadow:var(--shadow); }
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#fbe6ec; color:var(--cocoa); font-weight:900; z-index:20; }
+  body.og .ui, body.og #guide, body.og #status, body.og #staff, body.og #held, body.og .panel { display:none !important; }
 </style>
 </head>
 <body>
@@ -118,8 +126,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // 棒の綿: 棒のまわりの角度 NT × 高さ NY の場 (量 m、色 c、ふわふわ f)。指の動きで巻きつく場所が決まる
 const NR = 36, NT = 32, NY = 12;
 const SUGARS = [
-  { id: 'ichigo', name: 'いちご', col: '#ff86a8' }, { id: 'soda', name: 'ソーダ', col: '#74c6ff' }, { id: 'lemon', name: 'レモン', col: '#ffd75c' },
-  { id: 'budo', name: 'ぶどう', col: '#b58ae8' }, { id: 'melon', name: 'メロン', col: '#86dc94' },
+  { id: 'ichigo', name: 'いちご', col: '#ff8fae' }, { id: 'soda', name: 'ソーダ', col: '#86d0ff' }, { id: 'lemon', name: 'レモン', col: '#ffdc6a' },
+  { id: 'budo', name: 'ぶどう', col: '#bf98ec' }, { id: 'melon', name: 'メロン', col: '#93e0a0' },
 ];
 const RIM_R = .86;      // 糸がたまる半径
 const STICK_R = .028;
@@ -247,20 +255,30 @@ mesh(new THREE.SphereGeometry(.09, 24, 16), mats.knob, 0, .2, 1.22, tub).castSha
 
 // 糸 (ふちの雲): 18 個の雲 + 中心から飛ぶ糸のパーティクル
 const fluffTex = (() => { const S = 256, cv2 = document.createElement('canvas'); cv2.width = cv2.height = S; const x2 = cv2.getContext('2d'); x2.fillStyle = '#000'; x2.fillRect(0, 0, S, S); for (let i = 0; i < 900; i++) { const r = 3 + Math.random() * 9; const gr = x2.createRadialGradient(0, 0, 0, 0, 0, r); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x2.save(); x2.translate(Math.random() * S, Math.random() * S); x2.fillStyle = gr; x2.beginPath(); x2.arc(0, 0, r, 0, 7); x2.fill(); x2.restore(); } const t = new THREE.CanvasTexture(cv2); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
-function fluffMat(opacity) { return new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 1, transparent: true, opacity, alphaMap: fluffTex, depthWrite: false, side: THREE.DoubleSide }); }
+// 繊維の皮: 横方向 (棒のまわり) に流れる細い筋。dense=皮、sparse=外側のほつれ
+function strandTex(n, len, w, alpha, S = 512) { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = S; const x2 = cv2.getContext('2d'); x2.fillStyle = '#000'; x2.fillRect(0, 0, S, S); x2.lineCap = 'round';
+  for (let i = 0; i < n; i++) { const y = Math.random() * S, x = Math.random() * S, L = len * (.5 + Math.random()), a = alpha * (.4 + .6 * Math.random()); x2.strokeStyle = `rgba(255,255,255,${a})`; x2.lineWidth = w * (.5 + Math.random()); const wv = (Math.random() - .5) * 18;
+    for (const ox of [0, -S, S]) { x2.beginPath(); x2.moveTo(x + ox, y); x2.bezierCurveTo(x + ox + L * .33, y + wv, x + ox + L * .66, y - wv, x + ox + L, y + wv * .4); x2.stroke(); } }
+  const t = new THREE.CanvasTexture(cv2); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+const fiberTex = strandTex(1600, 100, 1.5, .95), wispTex = strandTex(260, 190, 1.1, .85);
+function fluffMat(opacity, tex = fiberTex, rep = 1) { const m = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 1, transparent: true, opacity, alphaMap: tex, depthWrite: false, side: THREE.DoubleSide }); m.alphaMap = tex.clone(); m.alphaMap.needsUpdate = true; m.alphaMap.repeat.set(rep, rep * .6); m.alphaMap.offset.set(Math.random(), Math.random()); return m; }
 const cloudGeo = new THREE.SphereGeometry(1, 18, 12); cloudGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cloudGeo.attributes.position.count * 3).fill(1), 3));
 const clouds = []; const NC = 18;
 for (let i = 0; i < NC; i++) {
   const a = i / NC * Math.PI * 2; const gp = new THREE.Group(); gp.position.set(Math.cos(a) * RIM_R, -.04, Math.sin(a) * RIM_R); gp.rotation.y = -a; tub.add(gp);
   const core = new THREE.Mesh(cloudGeo, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, envMapIntensity: .4 })); core.castShadow = true; gp.add(core);
-  const s1 = new THREE.Mesh(cloudGeo, fluffMat(.5)); s1.scale.setScalar(1.35); gp.add(s1); const s2 = new THREE.Mesh(cloudGeo, fluffMat(.25)); s2.scale.setScalar(1.75); gp.add(s2);
+  const s1 = new THREE.Mesh(cloudGeo, fluffMat(.5, fiberTex, 1)); s1.scale.setScalar(1.35); gp.add(s1); const s2 = new THREE.Mesh(cloudGeo, fluffMat(.25, wispTex, 1)); s2.scale.setScalar(1.75); gp.add(s2);
   gp.userData = { core, s1, s2, ph: Math.random() * 6 }; gp.visible = false; clouds.push(gp);
 }
 const NPT = 160; const ptPos = new Float32Array(NPT * 3), ptState = []; for (let i = 0; i < NPT; i++) ptState.push({ r: 5, a: 0, y: 0 });
 const ptGeo = new THREE.BufferGeometry(); ptGeo.setAttribute('position', new THREE.BufferAttribute(ptPos, 3));
 const dotTex = (() => { const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 32; const x2 = cv2.getContext('2d'); const gr = x2.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.4, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x2.fillStyle = gr; x2.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(cv2); })();
-const ptMat = new THREE.PointsMaterial({ color: '#ffffff', size: .05, map: dotTex, transparent: true, depthWrite: false, opacity: .85 });
-const strands = new THREE.Points(ptGeo, ptMat); strands.position.y = .02; tub.add(strands);
+const ptMat = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false, opacity: .8 });
+const lnPos = new Float32Array(NPT * 2 * 3); const lnGeo = new THREE.BufferGeometry(); lnGeo.setAttribute('position', new THREE.BufferAttribute(lnPos, 3));
+const strands = new THREE.LineSegments(lnGeo, ptMat); strands.position.y = .02; tub.add(strands);
+// ざらめの粒 (注ぐとき)
+const NG = 48; const grPos = new Float32Array(NG * 3).fill(-9), grVel = new Float32Array(NG * 3); const grGeo = new THREE.BufferGeometry(); grGeo.setAttribute('position', new THREE.BufferAttribute(grPos, 3));
+const grMat = new THREE.PointsMaterial({ color: '#ffffff', size: .035, map: dotTex, transparent: true, depthWrite: false }); const grains = new THREE.Points(grGeo, grMat); scene.add(grains);
 
 // ---------- items: tray, stick, spoon, sugar jars ----------
 const pickables = []; const hitMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -282,9 +300,15 @@ const selRing = new THREE.Mesh(new THREE.RingGeometry(.17, .22, 40), new THREE.M
 const heldGroup = new THREE.Group(); scene.add(heldGroup); let heldMesh = null;
 const candy = new THREE.Group(); candy.position.y = .48; // 棒の下の方に巻きつく
 const blobGeo = new THREE.SphereGeometry(1, 36, 18); blobGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(blobGeo.attributes.position.count * 3).fill(1), 3));
-const blobCore = new THREE.Mesh(blobGeo, new THREE.MeshPhysicalMaterial({ color: '#d8cbd0', vertexColors: true, roughness: 1, sheen: .5, sheenRoughness: .8, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: .4 })); blobCore.castShadow = true;
-const blobS1 = new THREE.Mesh(blobGeo.clone(), fluffMat(.5)), blobS2 = new THREE.Mesh(blobGeo.clone(), fluffMat(.28)); blobS1.renderOrder = 2; blobS2.renderOrder = 3;
-candy.add(blobCore, blobS1, blobS2); candy.visible = false;
+const coreMat = new THREE.MeshPhysicalMaterial({ color: '#ece2e5', vertexColors: true, roughness: 1, sheen: .7, sheenRoughness: .6, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: .45, bumpMap: fiberTex, bumpScale: .006 });
+coreMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor.rgb * 0.2;'); }; // 光が透ける綿: 影を淡く
+const blobCore = new THREE.Mesh(blobGeo, coreMat); blobCore.castShadow = true;
+const blobS1 = new THREE.Mesh(blobGeo.clone(), fluffMat(.55, fiberTex, 1)), blobS2 = new THREE.Mesh(blobGeo.clone(), fluffMat(.32, fiberTex, 1.4)), blobS3 = new THREE.Mesh(blobGeo.clone(), fluffMat(.3, wispTex, 1)); blobS1.renderOrder = 2; blobS2.renderOrder = 3; blobS3.renderOrder = 4; [[blobS2, .35], [blobS3, -.3]].forEach(([b, r]) => { b.material.alphaMap.center.set(.5, .5); b.material.alphaMap.rotation = r; });
+candy.add(blobCore, blobS1, blobS2, blobS3); candy.visible = false;
+// ほつれ毛: 表面から外に出る細い線
+const NH = 80, HS = 5; const hairDef = []; for (let i = 0; i < NH; i++) hairDef.push({ th: Math.random() * Math.PI * 2, y: (Math.random() * 2 - 1) * .9, len: .08 + Math.random() * .22, curl: (Math.random() - .5) * .5, ph: Math.random() * 6 });
+const hairPos = new Float32Array(NH * HS * 2 * 3), hairCol = new Float32Array(NH * HS * 2 * 3); const hairGeo = new THREE.BufferGeometry(); hairGeo.setAttribute('position', new THREE.BufferAttribute(hairPos, 3)); hairGeo.setAttribute('color', new THREE.BufferAttribute(hairCol, 3));
+const hairs = new THREE.LineSegments(hairGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: .38, depthWrite: false })); hairs.renderOrder = 5; candy.add(hairs);
 const blobN = blobGeo.attributes.position.count; const blobDir = new Float32Array(blobN * 3); { const p = blobGeo.attributes.position.array; for (let i = 0; i < blobN * 3; i++) blobDir[i] = p[i]; }
 // 輪郭の凹凸 (頂点ごとに固定、継ぎ目が合うように位置から決める)
 const blobNoise = new Float32Array(blobN); for (let v = 0; v < blobN; v++) { const x = blobDir[v * 3], y = blobDir[v * 3 + 1], z = blobDir[v * 3 + 2]; blobNoise[v] = .06 * Math.sin(x * 7.1 + y * 5.3) * Math.cos(z * 6.7 - y * 4.1) + .05 * Math.sin(x * 13.3 - z * 11.7 + y * 9.1); }
@@ -298,10 +322,16 @@ function updateBlob() {
     const k = ((ti % NT) + NT) % NT * NY + Math.max(0, Math.min(NY - 1, j));
     const fl = g.f[k];
     const R = (STICK_R + .015 + .55 * Math.pow(m * 40, .55)) * (1 + blobNoise[v] * Math.min(1, m * 60));
-    for (let s = 0; s < 3; s++) { const geo = [blobCore, blobS1, blobS2][s].geometry; const p = geo.attributes.position.array; const sc = s === 0 ? 1 : (1 + s * (.06 + .09 * fl)); const rr = R * sc + s * .012; p[v * 3] = nx * rr; p[v * 3 + 1] = ny * rr * 1.2; p[v * 3 + 2] = nz * rr; const c = geo.attributes.color.array; const wh = s === 0 ? 0 : .12 * s; c[v * 3] = g.cs[k * 3] + (1 - g.cs[k * 3]) * wh; c[v * 3 + 1] = g.cs[k * 3 + 1] + (1 - g.cs[k * 3 + 1]) * wh; c[v * 3 + 2] = g.cs[k * 3 + 2] + (1 - g.cs[k * 3 + 2]) * wh; }
+    for (let s = 0; s < 4; s++) { const geo = [blobCore, blobS1, blobS2, blobS3][s].geometry; const p = geo.attributes.position.array; const sc = s === 0 ? 1 : s === 3 ? (1.2 + .16 * fl) : (1 + s * (.06 + .09 * fl)); const rr = R * sc + s * .012; p[v * 3] = nx * rr; p[v * 3 + 1] = ny * rr * 1.2; p[v * 3 + 2] = nz * rr; const c = geo.attributes.color.array; const wh = s === 0 ? 0 : .15 * s; c[v * 3] = g.cs[k * 3] + (1 - g.cs[k * 3]) * wh; c[v * 3 + 1] = g.cs[k * 3 + 1] + (1 - g.cs[k * 3 + 1]) * wh; c[v * 3 + 2] = g.cs[k * 3 + 2] + (1 - g.cs[k * 3 + 2]) * wh; }
   }
-  for (const b of [blobCore, blobS1, blobS2]) { b.geometry.attributes.position.needsUpdate = true; b.geometry.attributes.color.needsUpdate = true; b.geometry.computeVertexNormals(); }
-  const st = stats(); blobS1.material.opacity = .3 + .3 * st.fluff; blobS2.material.opacity = .12 + .22 * st.fluff;
+  for (const b of [blobCore, blobS1, blobS2, blobS3]) { b.geometry.attributes.position.needsUpdate = true; b.geometry.attributes.color.needsUpdate = true; b.geometry.computeVertexNormals(); }
+  const st = stats(); blobS1.material.opacity = .36 + .3 * st.fluff; blobS2.material.opacity = .18 + .22 * st.fluff; blobS3.material.opacity = .18 + .3 * st.fluff;
+  // ほつれ毛
+  for (let i = 0; i < NH; i++) { const hd = hairDef[i]; const cap = Math.sqrt(1 - hd.y * hd.y); const nx = Math.cos(hd.th) * cap, nz = Math.sin(hd.th) * cap, ny = hd.y; const ti = Math.round(hd.th / (Math.PI * 2) * NT), j = Math.round((ny + 1) / 2 * (NY - 1));
+    let m = 0, ws = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { m += mAt(ti + a, j + b); ws++; } m /= ws; const k = ((ti % NT) + NT) % NT * NY + Math.max(0, Math.min(NY - 1, j));
+    const R0 = (STICK_R + .015 + .55 * Math.pow(m * 40, .55)) * 1.04; const L = hd.len * (.4 + .9 * g.f[k]) * Math.min(1, m * 90); const tx = -Math.sin(hd.th), tz = Math.cos(hd.th);
+    for (let q = 0; q < HS; q++) { for (let e = 0; e < 2; e++) { const t = (q + e) / HS; const w = L * t * (hd.curl > 0 ? 1 : -1) * (1.2 + Math.abs(hd.curl)); const rr = R0 + L * t * (.35 + .5 * Math.sin(t * 2 + hd.ph)); const o = ((i * HS + q) * 2 + e) * 3; hairPos[o] = nx * rr + tx * w; hairPos[o + 1] = ny * rr * 1.2 + Math.sin(t * 2.5 + hd.ph) * hd.curl * L * .6; hairPos[o + 2] = nz * rr + tz * w; hairCol[o] = g.cs[k * 3] * .5 + .5; hairCol[o + 1] = g.cs[k * 3 + 1] * .5 + .5; hairCol[o + 2] = g.cs[k * 3 + 2] * .5 + .5; } } }
+  hairGeo.attributes.position.needsUpdate = true; hairGeo.attributes.color.needsUpdate = true; hairs.visible = g.mass > .02;
   candy.visible = g.mass > .004;
 }
 
@@ -397,8 +427,12 @@ function update(dt) {
     heatMat.emissiveIntensity = g.heat * 1.6; head.rotation.y += dt * (2 + g.heat * 30);
     // 糸のパーティクル
     const emitting = g.heat >= 1 && g.sugar > 0; strands.visible = true; ptMat.color.copy(g.sugarCol).lerp(new THREE.Color('#ffffff'), .35);
-    for (let i = 0; i < NPT; i++) { const s = ptState[i]; if (s.r > RIM_R + .1) { if (emitting && Math.random() < .35) { s.r = .14; s.a = g.emitAng + (Math.random() - .5) * 1.2; s.y = .02 + Math.random() * .1; } else { ptPos[i * 3 + 1] = -9; continue; } } s.r += dt * (1.1 + Math.random() * .6); s.a += dt * 1.6; ptPos[i * 3] = Math.cos(s.a) * s.r; ptPos[i * 3 + 1] = s.y + Math.sin(s.r * 9 + i) * .03; ptPos[i * 3 + 2] = Math.sin(s.a) * s.r; }
-    ptGeo.attributes.position.needsUpdate = true;
+    for (let i = 0; i < NPT; i++) { const s = ptState[i]; if (s.r > RIM_R + .1) { if (emitting && Math.random() < .35) { s.r = .14; s.a = g.emitAng + (Math.random() - .5) * 1.2; s.y = .02 + Math.random() * .1; } else { lnPos[i * 6 + 1] = lnPos[i * 6 + 4] = -9; continue; } } s.r += dt * (1.1 + Math.random() * .6); s.a += dt * 1.6; const x = Math.cos(s.a) * s.r, z = Math.sin(s.a) * s.r, y = s.y + Math.sin(s.r * 9 + i) * .03; const dx = Math.cos(s.a) * .9 - Math.sin(s.a) * .5, dz = Math.sin(s.a) * .9 + Math.cos(s.a) * .5; lnPos[i * 6] = x; lnPos[i * 6 + 1] = y; lnPos[i * 6 + 2] = z; lnPos[i * 6 + 3] = x + dx * .12; lnPos[i * 6 + 4] = y + .01; lnPos[i * 6 + 5] = z + dz * .12; }
+    lnGeo.attributes.position.needsUpdate = true;
+    // ざらめの粒
+    const pouring = g.tool === 'spoon' && g.spoon && g.spoon.amt > 0 && g.down && g.pointer && Math.hypot(g.pointer.x, g.pointer.z) < .42;
+    for (let i = 0; i < NG; i++) { if (grPos[i * 3 + 1] < -.12) { if (pouring && Math.random() < .5) { grPos[i * 3] = heldGroup.position.x + (Math.random() - .5) * .08; grPos[i * 3 + 1] = heldGroup.position.y + .02; grPos[i * 3 + 2] = heldGroup.position.z + (Math.random() - .5) * .08; grVel[i * 3] = (Math.random() - .5) * .3; grVel[i * 3 + 1] = -.3; grVel[i * 3 + 2] = (Math.random() - .5) * .3; } else { grPos[i * 3 + 1] = -9; continue; } } grVel[i * 3 + 1] -= 4 * dt; grPos[i * 3] += grVel[i * 3] * dt; grPos[i * 3 + 1] += grVel[i * 3 + 1] * dt; grPos[i * 3 + 2] += grVel[i * 3 + 2] * dt; }
+    grGeo.attributes.position.needsUpdate = true; if (g.spoon) grMat.color.set(g.spoon.col);
     // ふちの雲
     for (let i = 0; i < NC; i++) { const gp = clouds[i]; const i0 = Math.round(i / NC * NR) % NR, i1 = (i0 + 1) % NR; const F = (g.F[i0] + g.F[i1]) * .5; gp.visible = F > .03; if (!gp.visible) continue; const age = (g.Fage[i0] + g.Fage[i1]) * .5, fl = 1 - Math.min(1, age / 28); const sc = .09 + Math.min(1.6, F) * .34; gp.scale.set(sc * .8, sc * .7, sc * 1.9); gp.userData.s1.scale.setScalar(1.2 + .3 * fl); gp.userData.s2.scale.setScalar(1.45 + .5 * fl); gp.userData.s1.material.opacity = .25 + .3 * fl; gp.userData.s2.material.opacity = .1 + .2 * fl; const col = new THREE.Color(g.FC[i0 * 3], g.FC[i0 * 3 + 1], g.FC[i0 * 3 + 2]); gp.userData.core.material.color.copy(col); gp.userData.s1.material.color.copy(col).lerp(new THREE.Color('#ffffff'), .15); gp.userData.s2.material.color.copy(col).lerp(new THREE.Color('#ffffff'), .3); gp.position.y = -.04 + Math.sin(g.t * 1.3 + gp.userData.ph) * .01; }
     // 持ち物の位置
@@ -493,6 +527,13 @@ document.getElementById('share').onclick = () => { track('wataame_share'); const
 newCandy(); g.phase = 'title';
 document.getElementById('loading').remove();
 requestAnimationFrame(frame);
+// ---- 公開用サムネイル (?og=1 / ?og=icon): 2 色のわたあめを作って写真の構図で止める
+const OG = new URLSearchParams(location.search).get('og');
+if (OG) { document.body.classList.add('og'); newCandy(); g.phase = 'make';
+  const wind = (col, secs) => { g.sugarCol.set(col); g.sugar = 1; g.heat = 1; setHeld({ kind: 'tool', id: 'stick', name: '棒' }); let a = 0; for (let i = 0; i < secs * 60; i++) { a += 1.9 / 60; g.pointer = { x: Math.cos(a) * .85, z: Math.sin(a) * .85 }; g.down = true; update(1 / 60); } g.down = false; g.pointer = null; };
+  wind('#ff8fae', 6); wind('#86d0ff', 5);
+  const cam = OG === 'icon' ? { pos: [0, 1.15, 2.35], look: [0, .98, .9] } : { pos: [.35, 1.2, 2.75], look: [0, .9, .7] };
+  CAM.photo.pos.fromArray(cam.pos); CAM.photo.look.fromArray(cam.look); finish(); camera.position.copy(CAM.photo.pos); camera.lookAt(CAM.photo.look); presGroup.rotation.y = .15; update(0); render(); }
 window.__g = () => g; window.__api = { CAM, LAYOUT, applyLayout, resize, pickAt, worldAt, pickables, update, render, stats, newCandy, setHeld, finish, simulate, camera, scene, renderer, jars, tub, THREE, SUGARS };
 </script>
 </body>

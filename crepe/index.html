@@ -8,6 +8,13 @@
 <meta name="description" content="生地を落として、トンボで薄くのばして、焼けたらクリームと果物をのせて折る。本物みたいに生地が広がって焼けるクレープ屋さん。">
 <meta property="og:title" content="クレープシミュレーター">
 <meta property="og:description" content="生地を薄くのばして、焼いて、のせて、折る。">
+<meta property="og:image" content="https://omise.ochinana.jp/crepe/og.png">
+<meta property="og:url" content="https://omise.ochinana.jp/crepe/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#fbe6ec">
 <style>
   :root { color-scheme: light; --cream:#fff8f3; --pink:#f6b9c7; --pink2:#fde7ec; --berry:#ef7f9a; --cocoa:#7a4a3a; --ink:#6b5047; --shadow:0 4px 14px rgba(190,120,130,.22); }
   html, body { margin:0; height:100%; background:#fbe6ec; overflow:hidden; font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Rounded Mplus 1c","Noto Sans JP",-apple-system,sans-serif; font-weight:700; touch-action:none; -webkit-user-select:none; user-select:none; }
@@ -58,6 +65,7 @@
   #gallery .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:8px 0; max-height:50vh; overflow:auto; }
   #gallery img { width:100%; border-radius:14px; background:#eee; box-shadow:var(--shadow); }
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#fbe6ec; color:var(--cocoa); font-weight:900; z-index:20; }
+  body.og .ui, body.og #guide, body.og #status, body.og #staff, body.og #held, body.og .panel { display:none !important; }
 </style>
 </head>
 <body>
@@ -950,6 +958,19 @@ document.getElementById('share').onclick = () => { track('crepe_share'); const t
 newCrepe(); g.phase = 'title';
 document.getElementById('loading').remove();
 requestAnimationFrame(frame);
+// ---- 公開用サムネイル (?og=1 / ?og=icon): 焼いて具をのせて包んだクレープを写真の構図で止める
+const OG = new URLSearchParams(location.search).get('og');
+if (OG) { document.body.classList.add('og'); newCrepe(); g.phase = 'cook';
+  const run = s => { for (let i = 0; i < s * 60; i++) update(1 / 60); };
+  setHeld({ kind: 'tool', id: 'ladle', name: 'おたま' }); for (let i = 0; i < 100; i++) { pour(0, 0, 1 / 60); update(1 / 60); }
+  let ang = 0, r = .05, lastP = { x: r, z: 0 }; for (let i = 0; i < 520; i++) { ang += .22; r += .0019; const p = { x: Math.cos(ang) * r, z: Math.sin(ang) * r }; spread(lastP, p); lastP = p; if (i % 4 === 0) update(1 / 60); }
+  run(15);
+  setHeld({ kind: 'cream', id: 'white', name: 'ホイップ' }); for (let i = 0; i < 36; i++) { const a = i * .38; addStroke('cream', 'white', Math.cos(a) * (.1 + i * .01), Math.sin(a) * (.1 + i * .01)); } { const li = g.items[g.items.length - 1]; if (li && li.pts) li.closed = true; }
+  [['ichigo', .2, -.1], ['ichigo', -.22, .08], ['banana', .04, .27], ['kiwi', -.06, -.3], ['blueberry', .32, .14], ['blueberry', -.3, -.14], ['mikan', .18, .3]].forEach(([id, x, z]) => addItem(id, x, z));
+  setHeld(null); update(1 / 60);
+  tryFold([{ x: -.5, z: 0 }, { x: -.2, z: 0 }, { x: .2, z: 0 }, { x: .5, z: 0 }]); run(1.3); tryFold([{ x: 0, z: -.5 }, { x: 0, z: -.2 }, { x: 0, z: .2 }, { x: 0, z: .5 }]); run(1.3);
+  const cam = OG === 'icon' ? { pos: [0, 1.25, 2.3], look: [0, .85, 0] } : { pos: [.3, 1.3, 2.7], look: [0, .82, 0] };
+  CAM.photo.pos.fromArray(cam.pos); CAM.photo.look.fromArray(cam.look); finish(); camera.position.copy(CAM.photo.pos); camera.lookAt(CAM.photo.look); update(0); render(); }
 window.__g = () => g; window.__A = A; window.__api = { CAM, LAYOUT, applyLayout, resize, asset, update, render, stats, newCrepe, setHeld, finish, cellAt, pour, spread, tryFold, tryFlip, addItem, addStroke, camera, scene, renderer, tools, bagMeshes, bottleMeshes, trayFruits, THREE };
 </script>
 </body>
